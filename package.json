@@ -1,0 +1,24 @@
+{
+  "name": "notion-md-archive",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Export a Notion database to a GitHub-Flavored-Markdown archive.",
+  "scripts": {
+    "export": "tsx src/main.ts",
+    "gui": "tsx src/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "yaml": "^2.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}

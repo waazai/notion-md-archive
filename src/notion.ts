@@ -1,0 +1,110 @@
+import { Client } from "@notionhq/client";
+import type { NotionBlock } from "./types.js";
+
+// Thin wrapper around the official client: a request throttle (~3 req/s to stay
+// under Notion's rate limit) plus the pagination + recursion we need.
+
+export interface NotionPage {
+  id: string;
+  created_time: string;
+  last_edited_time: string;
+  properties: Record<string, any>;
+}
+
+export class Notion {
+  private client: Client;
+  private queue: Promise<unknown> = Promise.resolve();
+  private readonly minGapMs = 350; // ~3 req/s
+  private lastAt = 0;
+
+  constructor(token: string) {
+    this.client = new Client({ auth: token });
+  }
+
+  /** Serialize + space out requests to respect the rate limit. */
+  private schedule<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(async () => {
+      const wait = this.minGapMs - (Date.now() - this.lastAt);
+      if (wait > 0) await sleep(wait);
+      this.lastAt = Date.now();
+      return fn();
+    });
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  /** Database title (subfolder name) + property schema (for capability checks). */
+  async retrieveDatabase(
+    databaseId: string
+  ): Promise<{ name: string; properties: Record<string, any> }> {
+    const db: any = await this.schedule(() =>
+      this.client.databases.retrieve({ database_id: databaseId })
+    );
+    const name = (db.title ?? []).map((t: any) => t.plain_text).join("").trim() || "Untitled";
+    return { name, properties: db.properties ?? {} };
+  }
+
+  /** All pages in a database, following pagination. */
+  async queryDatabase(databaseId: string): Promise<NotionPage[]> {
+    const pages: NotionPage[] = [];
+    let cursor: string | undefined;
+    do {
+      const res: any = await this.schedule(() =>
+        this.client.databases.query({ database_id: databaseId, start_cursor: cursor })
+      );
+      for (const p of res.results) pages.push(p as NotionPage);
+      cursor = res.has_more ? res.next_cursor : undefined;
+    } while (cursor);
+    return pages;
+  }
+
+  /** Block tree for a page: every block, with nested children attached. */
+  async fetchBlockTree(blockId: string): Promise<NotionBlock[]> {
+    const blocks = await this.listChildren(blockId);
+    for (const b of blocks) {
+      if (b.has_children) b.children = await this.fetchBlockTree(b.id);
+    }
+    return blocks;
+  }
+
+  private async listChildren(blockId: string): Promise<NotionBlock[]> {
+    const out: NotionBlock[] = [];
+    let cursor: string | undefined;
+    do {
+      const res: any = await this.schedule(() =>
+        this.client.blocks.children.list({ block_id: blockId, start_cursor: cursor })
+      );
+      for (const b of res.results) out.push(b as NotionBlock);
+      cursor = res.has_more ? res.next_cursor : undefined;
+    } while (cursor);
+    return out;
+  }
+
+  /** Resolve a relation page id to its title (for tag names). */
+  async pageTitle(pageId: string): Promise<string> {
+    const page: any = await this.schedule(() =>
+      this.client.pages.retrieve({ page_id: pageId })
+    );
+    const props = page.properties ?? {};
+    for (const key of Object.keys(props)) {
+      if (props[key]?.type === "title") {
+        return (props[key].title ?? []).map((t: any) => t.plain_text).join("").trim();
+      }
+    }
+    return pageId;
+  }
+
+  /** Write-back: set a date property to `when` (Phase 4). */
+  async setDate(pageId: string, propName: string, when: Date): Promise<void> {
+    await this.schedule(() =>
+      this.client.pages.update({
+        page_id: pageId,
+        properties: { [propName]: { date: { start: when.toISOString() } } } as any,
+      })
+    );
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
