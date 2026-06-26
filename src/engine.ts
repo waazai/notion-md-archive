@@ -2,7 +2,7 @@ import { writeFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { Notion } from "./notion.js";
 import { buildTagMap } from "./tags.js";
-import { mapPageToMeta, buildFrontmatter, filenameFor } from "./frontmatter.js";
+import { mapPageToMeta, buildFrontmatter, filenameFor, resolvePropName, NAME_CANDIDATES } from "./frontmatter.js";
 import { blocksToGFM } from "./convert.js";
 import { collectMediaUrls, downloadAll } from "./attachments.js";
 import { expandPath, sanitizeFolder, ensureDir } from "./paths.js";
@@ -33,8 +33,6 @@ export async function runExport(
   const summary: RunSummary = { databases: [] };
 
   const props = config.props ?? {};
-  const tagsPref = props.tags ?? "Tags";
-  const syncProp = props.lastSynced ?? "Last synced";
 
   for (const dbId of config.databaseIds) {
     const { name: dbName, properties: schema } = await notion.retrieveDatabase(dbId);
@@ -42,14 +40,16 @@ export async function runExport(
     const attachmentsDir = join(outDir, "attachments");
     log(`\n# ${dbName}  ->  ${outDir}`);
 
-    // Write-back needs a date property; degrade gracefully if it is absent.
-    const canWriteBack = schema[syncProp]?.type === "date";
+    // Write-back needs a date property; resolve its name (case-insensitive /
+    // configurable) and degrade gracefully if it is absent.
+    const syncName = resolvePropName(schema, props.lastSynced, NAME_CANDIDATES.lastSynced);
+    const canWriteBack = !!syncName && schema[syncName]?.type === "date";
     if (!canWriteBack && !opts.dryRun) {
-      log(`  (no "${syncProp}" date property — skipping write-back)`);
+      log(`  (no "${props.lastSynced ?? "Last synced"}" date property — skipping write-back)`);
     }
 
     const pages = await notion.queryDatabase(dbId);
-    const tagMap = await buildTagMap(notion, pages, tagsPref);
+    const tagMap = await buildTagMap(notion, pages, props.tags);
     const metas = pages.map((p) => mapPageToMeta(p, tagMap, props));
     log(`  ${pages.length} notes`);
 
@@ -93,7 +93,7 @@ export async function runExport(
         log(`  · ${filename} (${mediaUrls.length} media)`);
       } else {
         await writeFile(join(outDir, filename), content);
-        if (canWriteBack) await notion.setDate(page.id, syncProp, now); // write-back
+        if (canWriteBack) await notion.setDate(page.id, syncName!, now); // write-back
         written++;
         log(`  ✓ ${filename}`);
       }

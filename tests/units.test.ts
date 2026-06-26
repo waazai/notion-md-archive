@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { slug, sanitizeFolder, expandPath } from "../src/paths.js";
-import { mapPageToMeta, buildFrontmatter, filenameFor, resolveTags } from "../src/frontmatter.js";
+import { mapPageToMeta, buildFrontmatter, filenameFor, resolveTags, readType } from "../src/frontmatter.js";
 import { collectMediaUrls, localNameForUrl } from "../src/attachments.js";
 import type { NotionPage } from "../src/notion.js";
 import type { NotionBlock } from "../src/types.js";
@@ -83,6 +83,19 @@ describe("mapPageToMeta + frontmatter", () => {
   });
 });
 
+describe("type reading", () => {
+  it("reads select / status / multi_select / rich_text", () => {
+    expect(readType({ type: "select", select: { name: "Note" } })).toBe("Note");
+    expect(readType({ type: "status", status: { name: "Active" } })).toBe("Active");
+    expect(readType({ type: "multi_select", multi_select: [{ name: "a" }, { name: "b" }] })).toBe("a, b");
+    expect(readType({ type: "rich_text", rich_text: [{ plain_text: "freeform" }] })).toBe("freeform");
+  });
+  it("missing or unknown -> empty", () => {
+    expect(readType(undefined)).toBe("");
+    expect(readType({ type: "number", number: 5 })).toBe("");
+  });
+});
+
 describe("flexible tags", () => {
   it("resolves relation via category map", () => {
     expect(resolveTags({ type: "relation", relation: [{ id: "a" }] }, new Map([["a", "Work"]]))).toEqual(["Work"]);
@@ -95,6 +108,28 @@ describe("flexible tags", () => {
   });
   it("missing prop -> empty", () => {
     expect(resolveTags(undefined, new Map())).toEqual([]);
+  });
+
+  it("matches a default tag name case-insensitively", () => {
+    const p: NotionPage = {
+      id: "p", created_time: "2026-06-24T08:20:00.000Z", last_edited_time: "2026-06-24T09:00:00.000Z",
+      properties: {
+        Name: { type: "title", title: [{ plain_text: "N" }] },
+        category: { type: "multi_select", multi_select: [{ name: "x" }] }, // lowercase
+      },
+    };
+    expect(mapPageToMeta(p, new Map()).tags).toEqual(["x"]);
+  });
+
+  it("does NOT grab an unrelated relation (e.g. Parent)", () => {
+    const p: NotionPage = {
+      id: "p", created_time: "2026-06-24T08:20:00.000Z", last_edited_time: "2026-06-24T09:00:00.000Z",
+      properties: {
+        Name: { type: "title", title: [{ plain_text: "N" }] },
+        Parent: { type: "relation", relation: [{ id: "z" }] }, // not a tag-named prop
+      },
+    };
+    expect(mapPageToMeta(p, new Map([["z", "Wrong"]])).tags).toEqual([]);
   });
 
   it("auto-detects the tag property when the name is absent", () => {

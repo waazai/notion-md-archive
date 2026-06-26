@@ -54,16 +54,23 @@ ${OUT_BASE}/${databaseName}/
 
 The tool does **not** require an exact schema. What it needs:
 
-| Need | Requirement | If absent |
-|---|---|---|
-| title | any `title`-typed property (auto-detected) | every Notion DB has one |
-| created | date prop (default name `Created`) | falls back to `created_time` |
-| tags | a `relation`, `multi_select`, or `select` prop (default name `Tags`; **auto-detects** the first multi_select/relation if that name is absent) | tags empty (no error) |
-| type | a `select` prop (default name `Type`) | type empty (no error) |
-| write-back / `--since` | a **date** prop (default name `Last synced`) | write-back is **skipped gracefully**, `--since` exports everything (no error) |
+Every named property is matched **case-insensitively** against a default candidate list,
+which a `config.json` override replaces:
 
-The frontmatter key is always `tags` (a list — a note can have many). The Notion
-property it reads can be called anything; override names in `config.json` if needed:
+| Frontmatter | Notion source | Default name candidates | If absent |
+|---|---|---|---|
+| `title` | any `title`-typed property (matched by **type**, name-agnostic) | — | every DB has one |
+| `created` | a `date` property | `Created` | falls back to `created_time` |
+| `tags` | a `relation`, `multi_select`, or `select` property | `Tags`, `Tag`, `Category`, `Categories` | tags empty (no error) |
+| `type` | `select` / `status` / `multi_select` / `rich_text` | `Type` | type empty (no error) |
+| (write-back / `--since`) | a `date` property | `Last synced` | write-back **skipped gracefully**; `--since` exports everything |
+
+Tag matching is by **name**, not by guessing the first relation — so an unrelated relation
+like `Parent` is never mistaken for tags. `title` is the only field matched by property
+type rather than name.
+
+The frontmatter key is always `tags` (a list — a note can have many). Override names in
+`config.json` if your properties are named differently:
 
 ```json
 {

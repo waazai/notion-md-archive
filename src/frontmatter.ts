@@ -21,12 +21,25 @@ export interface PropNames {
   lastSynced?: string;
 }
 
-const DEFAULTS: Required<Omit<PropNames, "title">> = {
-  type: "Type",
-  tags: "Tags",
-  created: "Created",
-  lastSynced: "Last synced",
+// Default property-name candidates per field (matched case-insensitively).
+// A config override replaces the candidate list for that field.
+export const NAME_CANDIDATES = {
+  type: ["Type"],
+  tags: ["Tags", "Tag", "Category", "Categories"],
+  created: ["Created"],
+  lastSynced: ["Last synced"],
 };
+
+/** Find the actual property key matching a config name (if given) or the default
+ *  candidates, case-insensitively. Returns undefined when none match. */
+export function resolvePropName(
+  properties: Record<string, any>,
+  configName: string | undefined,
+  defaults: string[]
+): string | undefined {
+  const wanted = (configName ? [configName] : defaults).map((s) => s.toLowerCase());
+  return Object.keys(properties).find((k) => wanted.includes(k.toLowerCase()));
+}
 
 /** Map a Notion page to the metadata we archive. `tagMap` resolves relation
  *  page ids -> tag names (unused for multi_select/select tag sources). */
@@ -36,15 +49,21 @@ export function mapPageToMeta(
   names: PropNames = {}
 ): NoteMeta {
   const props = page.properties ?? {};
-  const n = { ...DEFAULTS, ...names };
 
   const title = readTitle(props, names.title);
-  const type = props[n.type]?.select?.name ?? "";
-  const tags = resolveTags(props[pickTagProp(props, n.tags)], tagMap);
+
+  const typeName = resolvePropName(props, names.type, NAME_CANDIDATES.type);
+  const type = readType(typeName ? props[typeName] : undefined);
+
+  const tagsName = resolvePropName(props, names.tags, NAME_CANDIDATES.tags);
+  const tags = resolveTags(tagsName ? props[tagsName] : undefined, tagMap);
 
   // `Created` is a manual date prop; fall back to the page's created_time.
-  const rawCreated = props[n.created]?.date?.start ?? page.created_time;
-  const lastSynced = props[n.lastSynced]?.date?.start ?? null;
+  const createdName = resolvePropName(props, names.created, NAME_CANDIDATES.created);
+  const rawCreated = (createdName ? props[createdName]?.date?.start : undefined) ?? page.created_time;
+
+  const syncName = resolvePropName(props, names.lastSynced, NAME_CANDIDATES.lastSynced);
+  const lastSynced = (syncName ? props[syncName]?.date?.start : undefined) ?? null;
 
   return {
     title,
@@ -58,13 +77,22 @@ export function mapPageToMeta(
   };
 }
 
-/** Pick which property holds the tags: the preferred name if present, else the
- *  first multi_select, else the first relation. Lets the tool work whether the
- *  property is called Tags / Category / tag and is a relation or multi_select. */
-export function pickTagProp(properties: Record<string, any>, preferred: string): string {
-  if (properties[preferred]) return preferred;
-  const byType = (t: string) => Object.keys(properties).find((k) => properties[k]?.type === t);
-  return byType("multi_select") ?? byType("relation") ?? preferred;
+/** Read the `type` property regardless of its Notion kind: select, status,
+ *  multi_select (joined), or rich_text. Missing/other -> "". */
+export function readType(prop: any): string {
+  if (!prop) return "";
+  switch (prop.type) {
+    case "select":
+      return prop.select?.name ?? "";
+    case "status":
+      return prop.status?.name ?? "";
+    case "multi_select":
+      return (prop.multi_select ?? []).map((o: { name: string }) => o.name).join(", ");
+    case "rich_text":
+      return (prop.rich_text ?? []).map((t: { plain_text: string }) => t.plain_text).join("");
+    default:
+      return "";
+  }
 }
 
 /** Resolve the tag source property to names. Accepts a relation (resolved via

@@ -5,9 +5,10 @@ Scope: **export only**. Import script = separate future plan.
 **Workflow: stop at every ▢ checkpoint for the user to test; continue only on their OK.**
 `created` empty → fall back to Notion `created_time`.
 
-> **Status 2026-06-25:** P0–P4 complete. 45 vitest tests + typecheck green. CLI runs clean
-> against a real database (P0/P1/P2/P4 paths confirmed by the user). **Untested:**
-> attachment download (CP3) and the `Sync` formula flip in Notion. **P5 (GUI) paused.**
+> **Status 2026-06-26:** P0–P4 complete **and all checkpoints CP0–CP4 tested** against a
+> real database. 45 vitest tests + typecheck green. Attachment download (CP3) and the
+> `Sync` formula flip after write-back (CP4) now confirmed by the user. **P5 (GUI) paused.**
+> Next effort: a separate **import** module (local Markdown → Notion) — see SPEC-import.md.
 
 ## Phase 0 — Scaffold + config + auth + frontmatter (CLI)
 - [x] 0.1 Scaffold: package.json, tsconfig(strict), vitest, @notionhq/client, tsx, .gitignore
@@ -40,14 +41,14 @@ Scope: **export only**. Import script = separate future plan.
 - [x] 3.1 `attachments.ts`: detect image/file/pdf/video/audio, download signed URL → `attachments/`
 - [x] 3.2 content/path-stable filenames, skip if present (idempotent)
 - [x] 3.3 rewrite to relative `![](attachments/…)` / `[file](attachments/…)`
-- [ ] ▢ **CP3** — ⚠️ NOT YET TESTED: run on a note with an image; confirm files land + links resolve offline
+- [x] ▢ **CP3** — ✅ tested 2026-06-26: ran on a note with an image; files landed + links resolve offline
 
 ## Phase 4 — INDEX + incremental + write-back
 - [x] 4.1 `indexfile.ts`: regenerate `INDEX.md` (table, newest-first) each run
 - [x] 4.2 orphan detection → `## Orphans` section
 - [x] 4.3 write-back: `pages.update` set `Last synced = now` per exported note
 - [x] 4.4 `--since` (skip where `Last edited <= Last synced`) + `--dry-run` + summary
-- [x] ▢ **CP4** — CLI ran clean; ⚠️ still eyeball the `Sync` formula flip in Notion after write-back
+- [x] ▢ **CP4** — ✅ tested 2026-06-26: CLI ran clean + `Sync` formula flip confirmed in Notion after write-back
 
 ## Phase 5 — GUI window  ⏸️ PAUSED
 - [ ] 5.1 `server.ts`: tiny http server serving one page + JSON endpoints, opens `localhost:PORT`
@@ -58,6 +59,7 @@ Scope: **export only**. Import script = separate future plan.
 - [ ] ▢ **CP5**
 
 ## Remaining before "done"
-- [ ] CP3: verify attachment download on a real note with images
-- [ ] CP4: confirm `Sync` formula flips in Notion after a write-back
+- [x] CP3: verify attachment download on a real note with images — done 2026-06-26
+- [x] CP4: confirm `Sync` formula flips in Notion after a write-back — done 2026-06-26
 - [ ] P5 GUI (when resumed)
+- [ ] Import module (local Markdown → Notion) — separate effort, see SPEC-import.md

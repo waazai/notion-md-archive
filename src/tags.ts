@@ -1,5 +1,5 @@
 import type { Notion, NotionPage } from "./notion.js";
-import { pickTagProp } from "./frontmatter.js";
+import { resolvePropName, NAME_CANDIDATES } from "./frontmatter.js";
 
 // Resolve relation-based tag page-ids -> names. We collect every distinct related
 // id across all notes, then resolve each once (cached) — far fewer calls than
@@ -9,12 +9,13 @@ import { pickTagProp } from "./frontmatter.js";
 export async function buildTagMap(
   notion: Notion,
   pages: NotionPage[],
-  preferred = "Tags"
+  configTagName?: string
 ): Promise<Map<string, string>> {
   const ids = new Set<string>();
   for (const p of pages) {
     const props = p.properties ?? {};
-    const prop = props[pickTagProp(props, preferred)];
+    const name = resolvePropName(props, configTagName, NAME_CANDIDATES.tags);
+    const prop = name ? props[name] : undefined;
     if (prop?.type === "relation") {
       for (const r of (prop.relation ?? []) as { id: string }[]) ids.add(r.id);
     }
