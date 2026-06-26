@@ -79,6 +79,14 @@ function parseBlocks(lines: string[], from: number): { blocks: BlockInput[]; nex
       continue;
     }
 
+    // GFM table: a row line immediately followed by a `| --- |` separator.
+    if (isTableRow(line) && i + 1 < lines.length && isSeparatorRow(lines[i + 1]!)) {
+      const res = parseTable(lines, i);
+      blocks.push(res.block);
+      i = res.next;
+      continue;
+    }
+
     if (matchListItem(line)) {
       const baseIndent = matchListItem(line)!.indent;
       const res = parseListItems(lines, i, baseIndent);
@@ -203,6 +211,55 @@ function makeListBlock(m: ListMatch): BlockInput {
   }
   const type = m.ordered ? "numbered_list_item" : "bulleted_list_item";
   return { type, [type]: { rich_text } };
+}
+
+function isTableRow(line: string): boolean {
+  return /^\s*\|.*\|\s*$/.test(line);
+}
+
+/** A GFM header separator like `| --- | :---: |`. */
+function isSeparatorRow(line: string): boolean {
+  return /\|/.test(line) && /-/.test(line) && /^\s*\|?[\s:|-]+\|?\s*$/.test(line);
+}
+
+/** Split a `| a | b |` row into trimmed, unescaped cell strings. */
+function splitRow(line: string): string[] {
+  const s = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return s.split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, "|"));
+}
+
+/** Parse a contiguous GFM table (header + separator + body) into a Notion table. */
+function parseTable(lines: string[], from: number): { block: BlockInput; next: number } {
+  const rows: string[][] = [];
+  let i = from;
+  while (i < lines.length && isTableRow(lines[i]!)) {
+    if (isSeparatorRow(lines[i]!)) {
+      i++;
+      continue;
+    }
+    rows.push(splitRow(lines[i]!));
+    i++;
+  }
+
+  const width = Math.max(...rows.map((r) => r.length));
+  const children = rows.map((r) => {
+    const cells = [...r];
+    while (cells.length < width) cells.push("");
+    return { type: "table_row", table_row: { cells: cells.map((c) => parseInline(c)) } };
+  });
+
+  return {
+    block: {
+      type: "table",
+      table: {
+        table_width: width,
+        has_column_header: true,
+        has_row_header: false,
+        children,
+      },
+    },
+    next: i,
+  };
 }
 
 // Inline markers, tried in priority order at each position. Link first so a

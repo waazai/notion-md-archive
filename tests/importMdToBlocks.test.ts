@@ -137,3 +137,30 @@ describe("mdToBlocks — rich blocks (B.2)", () => {
     ]);
   });
 });
+
+describe("mdToBlocks — table (B.3)", () => {
+  it("builds a GFM table (separator row dropped)", () => {
+    const md = "| h1 | h2 |\n| --- | --- |\n| a | b |\n| c | d |";
+    const b = mdToBlocks(md);
+    expect(b).toHaveLength(1);
+    expect(b[0]!.type).toBe("table");
+    const tbl = (b[0] as any).table;
+    expect(tbl.table_width).toBe(2);
+    expect(tbl.has_column_header).toBe(true);
+    expect(tbl.has_row_header).toBe(false);
+    expect(tbl.children).toHaveLength(3);
+    expect(tbl.children[0].type).toBe("table_row");
+    expect(tbl.children[0].table_row.cells).toEqual([[t("h1")], [t("h2")]]);
+    expect(tbl.children[2].table_row.cells).toEqual([[t("c")], [t("d")]]);
+  });
+
+  it("unescapes \\| inside a cell", () => {
+    const tbl = (mdToBlocks("| a |\n| --- |\n| x \\| y |")[0] as any).table;
+    expect(tbl.children[1].table_row.cells).toEqual([[t("x | y")]]);
+  });
+
+  it("separates a table from a preceding paragraph", () => {
+    const b = mdToBlocks("Intro.\n\n| a | b |\n| --- | --- |\n| 1 | 2 |");
+    expect(b.map((x) => x.type)).toEqual(["paragraph", "table"]);
+  });
+});

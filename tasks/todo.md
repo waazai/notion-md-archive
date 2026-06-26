@@ -17,7 +17,7 @@ Scope: **import only**, additive — never modify the export path.
 ## Phase B — Full body conversion (pure)
 - [x] B.1 lists: bulleted/numbered nested (2-space) + `to_do` (mdToBlocks rewritten line-based)
 - [x] B.2 quote, callout (`> [!NOTE]`→callout+emoji), code(+lang), divider, equation
-- [ ] B.3 GFM table → `table`/`table_row`
+- [x] B.3 GFM table → `table`/`table_row`
 - [ ] B.4 round-trip tests vs `convert.test.ts` fixtures (modulo flatten/skip losses)
 - [ ] ▢ **CP-B** — `npm test` + `npm run typecheck` green; spot-check one body in Notion
 
