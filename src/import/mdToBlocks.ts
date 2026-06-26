@@ -35,11 +35,47 @@ function parseBlocks(lines: string[], from: number): { blocks: BlockInput[]; nex
       continue;
     }
 
+    // Fenced code: consume verbatim until the closing fence (blank lines kept).
+    const fence = /^```(.*)$/.exec(line);
+    if (fence) {
+      const language = fence[1]!.trim() || "plain text";
+      const content: string[] = [];
+      i++;
+      while (i < lines.length && !/^```\s*$/.test(lines[i]!)) content.push(lines[i++]!);
+      i++; // skip closing fence
+      blocks.push({ type: "code", code: { rich_text: [mkText(content.join("\n"), {})], language } });
+      continue;
+    }
+
+    // Equation block: $$ ... $$.
+    if (line.trim() === "$$") {
+      const expr: string[] = [];
+      i++;
+      while (i < lines.length && lines[i]!.trim() !== "$$") expr.push(lines[i++]!);
+      i++; // skip closing $$
+      blocks.push({ type: "equation", equation: { expression: expr.join("\n") } });
+      continue;
+    }
+
+    if (line.trim() === "---") {
+      blocks.push({ type: "divider", divider: {} });
+      i++;
+      continue;
+    }
+
     const heading = /^(#{1,3})\s+(.*)$/.exec(line);
     if (heading) {
       const type = `heading_${heading[1]!.length}`;
       blocks.push({ type, [type]: { rich_text: parseInline(heading[2]!) } });
       i++;
+      continue;
+    }
+
+    // Quote / callout: a run of `>`-prefixed lines.
+    if (/^>/.test(line)) {
+      const buf: string[] = [];
+      while (i < lines.length && /^>/.test(lines[i]!)) buf.push(lines[i++]!.replace(/^>\s?/, ""));
+      blocks.push(makeQuoteOrCallout(buf));
       continue;
     }
 
@@ -65,7 +101,42 @@ function parseBlocks(lines: string[], from: number): { blocks: BlockInput[]; nex
 
 /** Lines that begin a non-paragraph block (used to terminate paragraph runs). */
 function isBlockStart(line: string): boolean {
-  return /^#{1,3}\s/.test(line) || matchListItem(line) !== null;
+  return (
+    /^#{1,3}\s/.test(line) ||
+    /^```/.test(line) ||
+    /^>/.test(line) ||
+    line.trim() === "$$" ||
+    line.trim() === "---" ||
+    matchListItem(line) !== null
+  );
+}
+
+// Reverse of convert.ts `calloutFlavor`: flavor -> a representative emoji.
+const FLAVOR_EMOJI: Record<string, string> = {
+  TIP: "💡",
+  WARNING: "⚠️",
+  IMPORTANT: "❗",
+  CAUTION: "🚨",
+  NOTE: "ℹ️",
+};
+
+/** A run of de-prefixed `>` lines becomes a callout (if it opens with `[!FLAVOR]`)
+ *  or a plain quote. */
+function makeQuoteOrCallout(buf: string[]): BlockInput {
+  const callout = /^\[!(\w+)\]\s*(.*)$/.exec(buf[0] ?? "");
+  if (callout) {
+    const flavor = callout[1]!.toUpperCase();
+    const after = callout[2]!;
+    const body = (after ? [after, ...buf.slice(1)] : buf.slice(1)).join("\n");
+    return {
+      type: "callout",
+      callout: {
+        rich_text: parseInline(body),
+        icon: { type: "emoji", emoji: FLAVOR_EMOJI[flavor] ?? FLAVOR_EMOJI.NOTE },
+      },
+    };
+  }
+  return { type: "quote", quote: { rich_text: parseInline(buf.join("\n")) } };
 }
 
 interface ListMatch {

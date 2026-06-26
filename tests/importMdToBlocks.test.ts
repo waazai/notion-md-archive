@@ -93,3 +93,47 @@ describe("mdToBlocks — lists (B.1)", () => {
     expect((b[0] as any).bulleted_list_item.rich_text).toEqual([t("bold", { bold: true }), t(" x")]);
   });
 });
+
+describe("mdToBlocks — rich blocks (B.2)", () => {
+  it("builds a quote", () => {
+    expect(mdToBlocks("> quoted line")).toEqual([
+      { type: "quote", quote: { rich_text: [t("quoted line")] } },
+    ]);
+  });
+
+  it("joins a multi-line quote with soft breaks", () => {
+    expect((mdToBlocks("> a\n> b")[0] as any).quote.rich_text).toEqual([t("a\nb")]);
+  });
+
+  it("builds a callout with the flavor emoji", () => {
+    expect(mdToBlocks("> [!WARNING]\n> be careful")).toEqual([
+      {
+        type: "callout",
+        callout: { rich_text: [t("be careful")], icon: { type: "emoji", emoji: "⚠️" } },
+      },
+    ]);
+  });
+
+  it("builds a code block with language", () => {
+    expect(mdToBlocks("```js\nconst x = 1;\n```")).toEqual([
+      { type: "code", code: { rich_text: [t("const x = 1;")], language: "js" } },
+    ]);
+  });
+
+  it("defaults code language to plain text and keeps blank lines", () => {
+    const b = mdToBlocks("```\nline1\n\nline3\n```");
+    expect(b).toHaveLength(1);
+    expect((b[0] as any).code.language).toBe("plain text");
+    expect((b[0] as any).code.rich_text).toEqual([t("line1\n\nline3")]);
+  });
+
+  it("builds a divider", () => {
+    expect(mdToBlocks("---")).toEqual([{ type: "divider", divider: {} }]);
+  });
+
+  it("builds an equation block", () => {
+    expect(mdToBlocks("$$\nE = mc^2\n$$")).toEqual([
+      { type: "equation", equation: { expression: "E = mc^2" } },
+    ]);
+  });
+});
