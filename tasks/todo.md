@@ -12,10 +12,10 @@ Scope: **import only**, additive — never modify the export path.
 - [x] A.4 `import/mdToBlocks.ts` (pure, minimal): paragraph + h1/2/3 + inline bold/italic/code/strike/link
 - [x] A.5 `createPage` + `appendChildren` (≤100/chunk) added to the `Notion` class — kept in notion.ts (the sole network module, single throttle) rather than a separate import/importNotion.ts
 - [x] A.6 `import/engine.ts` `runImport` single-file create-only + summary; CLI prints it (pure `planImport` extracted + tested)
-- [ ] ▢ **CP-A** — real DB, one minimal file → page appears, title + paragraph correct  ← **YOU ARE HERE (needs token)**
+- [x] ▢ **CP-A** — ✅ tested: real DB, minimal file → page created, title + body correct (tag/type not yet mapped — expected, lands C.1/D)
 
 ## Phase B — Full body conversion (pure)
-- [ ] B.1 lists: bulleted/numbered nested (2-space) + `to_do`
+- [x] B.1 lists: bulleted/numbered nested (2-space) + `to_do` (mdToBlocks rewritten line-based)
 - [ ] B.2 quote, callout (`> [!NOTE]`→callout+emoji), code(+lang), divider, equation
 - [ ] B.3 GFM table → `table`/`table_row`
 - [ ] B.4 round-trip tests vs `convert.test.ts` fixtures (modulo flatten/skip losses)

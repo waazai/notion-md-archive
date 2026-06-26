@@ -54,3 +54,42 @@ describe("parseInline", () => {
     ]);
   });
 });
+
+describe("mdToBlocks — lists (B.1)", () => {
+  it("builds a bulleted list", () => {
+    const b = mdToBlocks("- one\n- two");
+    expect(b.map((x) => x.type)).toEqual(["bulleted_list_item", "bulleted_list_item"]);
+    expect((b[0] as any).bulleted_list_item.rich_text).toEqual([t("one")]);
+  });
+
+  it("builds a numbered list (ordinal not stored)", () => {
+    const b = mdToBlocks("1. a\n2. b");
+    expect(b.map((x) => x.type)).toEqual(["numbered_list_item", "numbered_list_item"]);
+    expect((b[1] as any).numbered_list_item.rich_text).toEqual([t("b")]);
+  });
+
+  it("builds to_do items with checked state", () => {
+    const b = mdToBlocks("- [ ] todo\n- [x] done");
+    expect(b[0]).toEqual({ type: "to_do", to_do: { rich_text: [t("todo")], checked: false } });
+    expect((b[1] as any).to_do.checked).toBe(true);
+  });
+
+  it("nests via 2-space indent (children)", () => {
+    const b = mdToBlocks("- parent\n  - child\n  - child2");
+    expect(b).toHaveLength(1);
+    const kids = (b[0] as any).bulleted_list_item.children;
+    expect(kids).toHaveLength(2);
+    expect(kids[0].type).toBe("bulleted_list_item");
+    expect(kids[0].bulleted_list_item.rich_text).toEqual([t("child")]);
+  });
+
+  it("separates a list from a following paragraph", () => {
+    const b = mdToBlocks("- item\n\nAfter.");
+    expect(b.map((x) => x.type)).toEqual(["bulleted_list_item", "paragraph"]);
+  });
+
+  it("parses inline marks inside an item", () => {
+    const b = mdToBlocks("- **bold** x");
+    expect((b[0] as any).bulleted_list_item.rich_text).toEqual([t("bold", { bold: true }), t(" x")]);
+  });
+});
