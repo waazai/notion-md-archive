@@ -6,6 +6,7 @@
   "description": "Export a Notion database to a GitHub-Flavored-Markdown archive.",
   "scripts": {
     "export": "tsx src/main.ts",
+    "import": "tsx src/main.ts import",
     "gui": "tsx src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",

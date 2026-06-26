@@ -1,9 +1,17 @@
 import { loadConfig } from "./config.js";
 import { runExport } from "./engine.js";
+import { importMain } from "./import/cli.js";
 
-// CLI: `npm run export [-- --dry-run]`
+// CLI: `npm run export [-- --dry-run]` / `npm run import -- --file … --db …`
 async function main() {
   const args = process.argv.slice(2);
+
+  // Subcommand dispatch: `import` routes to the import module; default = export.
+  if (args[0] === "import") {
+    await importMain(args.slice(1));
+    return;
+  }
+
   const dryRun = args.includes("--dry-run");
   const since = args.includes("--since");
 

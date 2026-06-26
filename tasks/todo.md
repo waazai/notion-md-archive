@@ -1,0 +1,48 @@
+# TODO — Import module (local Markdown → Notion)
+
+Plan: [plan.md](plan.md) · Spec: [../SPEC-import.md](../SPEC-import.md).
+`[x]` when acceptance + verify pass. ▢ = human checkpoint — **stop and wait for the user**.
+Pure modules build/test offline (no token); only ▢ checkpoints need `NOTION_TOKEN`.
+Scope: **import only**, additive — never modify the export path.
+
+## Phase A — Scaffold + minimal create (vertical MVP)
+- [x] A.1 `main.ts` `import` subcommand; reuse `loadConfig`; parse `--file/--dir/--db/--map/--dry-run` → `ImportOptions`; token from config only, never logged
+- [ ] A.2 `import/parseFile.ts` (pure): `.md` → `{ frontmatter, body }` (YAML fence split + parse)
+- [ ] A.3 `import/properties.ts` (pure, minimal): `title` payload + `identityKey` = `YYYY-MM-DD-slug(title)`
+- [ ] A.4 `import/mdToBlocks.ts` (pure, minimal): paragraph + h1/2/3 + inline bold/italic/code/strike/link
+- [ ] A.5 `import/importNotion.ts`: `createPage` + `appendChildren` (≤100/chunk), ~3 req/s throttle
+- [ ] A.6 `import/engine.ts` `runImport` single-file create-only + summary; CLI prints it
+- [ ] ▢ **CP-A** — real DB, one minimal file → page appears, title + paragraph correct
+
+## Phase B — Full body conversion (pure)
+- [ ] B.1 lists: bulleted/numbered nested (2-space) + `to_do`
+- [ ] B.2 quote, callout (`> [!NOTE]`→callout+emoji), code(+lang), divider, equation
+- [ ] B.3 GFM table → `table`/`table_row`
+- [ ] B.4 round-trip tests vs `convert.test.ts` fixtures (modulo flatten/skip losses)
+- [ ] ▢ **CP-B** — `npm test` + `npm run typecheck` green; spot-check one body in Notion
+
+## Phase C — Full properties + upsert
+- [ ] C.1 `properties.ts`: type→select, created→date, rich_text, multi_select tags (names); schema-driven types; `--map`/`props` overrides; unmapped → notice
+- [ ] C.2 upsert: query DB, match by `identityKey` (title + Created date) → update vs create; no `notion_id` in files
+- [ ] ▢ **CP-C** — import then re-import: updates in place, **no duplicate**; props correct
+
+## Phase D — Relation tags + auto-create
+- [ ] D.1 `import/tagsWrite.ts`: relation type → `relation.database_id` → name→id (cached); auto-create missing tag page; inverse of `tags.ts`
+- [ ] D.2 wire tag paths: multi_select/select → names; relation → D.1; prop absent → skip + notice
+- [ ] ▢ **CP-D** — note with a new tag name: tag page auto-created in related DB + linked
+
+## Phase E — Attachments upload
+- [ ] E.0 ⚠️ confirm `@notionhq/client` (currently ^2.2.15) supports file uploads; else bump SDK or use REST upload endpoint
+- [ ] E.1 `import/uploadFiles.ts`: upload local file → file id; content-keyed cache; external URLs kept as external
+- [ ] E.2 `mdToBlocks` image/file blocks carry local-path placeholder; engine resolves → file id before append
+- [ ] ▢ **CP-E** — note with an image renders in Notion; missing local file → skip + notice
+
+## Phase F — Batch + dry-run + docs
+- [ ] F.1 `--dir`: import all `*.md`; per-file summary `created/updated/skipped/failed`
+- [ ] F.2 `--dry-run`: print plan (props + block count + create/update + tags-to-create + files-to-upload); zero writes/creates/uploads; token never printed
+- [ ] F.3 `import` script in `package.json`; README import section; update `CLAUDE.md`/`PLAN.md`/`TODO.md`
+- [ ] ▢ **CP-F** — dry-run matches a real run; batch-import a folder cleanly
+
+## Verify (each phase, before its ▢)
+- [ ] `npm test` **and** `npm run typecheck` from `notion-md-archive/` (not workspace root)
+- [ ] pure modules covered by offline fixtures, no token
