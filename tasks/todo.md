@@ -8,7 +8,7 @@ Scope: **import only**, additive — never modify the export path.
 ## Phase A — Scaffold + minimal create (vertical MVP)
 - [x] A.1 `main.ts` `import` subcommand; reuse `loadConfig`; parse `--file/--dir/--db/--map/--dry-run` → `ImportOptions`; token from config only, never logged
 - [x] A.2 `import/parseFile.ts` (pure): `.md` → `{ frontmatter, body }` (YAML fence split + parse)
-- [ ] A.3 `import/properties.ts` (pure, minimal): `title` payload + `identityKey` = `YYYY-MM-DD-slug(title)`
+- [x] A.3 `import/properties.ts` (pure, minimal): `title` payload + `identityKey` = `YYYY-MM-DD-slug(title)`
 - [ ] A.4 `import/mdToBlocks.ts` (pure, minimal): paragraph + h1/2/3 + inline bold/italic/code/strike/link
 - [ ] A.5 `import/importNotion.ts`: `createPage` + `appendChildren` (≤100/chunk), ~3 req/s throttle
 - [ ] A.6 `import/engine.ts` `runImport` single-file create-only + summary; CLI prints it
