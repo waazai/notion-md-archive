@@ -1,5 +1,6 @@
 import { loadConfig } from "../config.js";
 import { parseImportArgs } from "./options.js";
+import { runImport } from "./engine.js";
 
 // Thin CLI shell for the `import` subcommand. Resolves options + config, then
 // hands off to the engine. (runImport is wired in task A.6; until then this
@@ -25,11 +26,16 @@ export async function importMain(argv: string[]): Promise<void> {
     return;
   }
 
+  if (opts.dir) {
+    console.error("Folder import (--dir) is not wired yet (task F.1). Use --file <note.md> for now.");
+    process.exit(1);
+    return;
+  }
+
   // Token is resolved but never printed.
-  const source = opts.file ?? opts.dir;
-  console.log(
-    `import: ${source} → db ${config.databaseIds[0]}` + (opts.dryRun ? " (dry-run)" : "")
-  );
-  // TODO(A.6): const summary = await runImport(config, opts, console.log);
-  console.log("(import engine not yet wired — task A.6)");
+  console.log(`import → db ${config.databaseIds[0]}` + (opts.dryRun ? " (dry-run)" : ""));
+  const results = await runImport(config, opts);
+
+  const created = results.filter((r) => r.action === "created").length;
+  console.log(`\n— summary —\n  ${results.length} file(s), ${created} created` + (opts.dryRun ? " (dry run — nothing written)" : ""));
 }

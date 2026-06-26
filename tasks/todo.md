@@ -11,8 +11,8 @@ Scope: **import only**, additive — never modify the export path.
 - [x] A.3 `import/properties.ts` (pure, minimal): `title` payload + `identityKey` = `YYYY-MM-DD-slug(title)`
 - [x] A.4 `import/mdToBlocks.ts` (pure, minimal): paragraph + h1/2/3 + inline bold/italic/code/strike/link
 - [x] A.5 `createPage` + `appendChildren` (≤100/chunk) added to the `Notion` class — kept in notion.ts (the sole network module, single throttle) rather than a separate import/importNotion.ts
-- [ ] A.6 `import/engine.ts` `runImport` single-file create-only + summary; CLI prints it
-- [ ] ▢ **CP-A** — real DB, one minimal file → page appears, title + paragraph correct
+- [x] A.6 `import/engine.ts` `runImport` single-file create-only + summary; CLI prints it (pure `planImport` extracted + tested)
+- [ ] ▢ **CP-A** — real DB, one minimal file → page appears, title + paragraph correct  ← **YOU ARE HERE (needs token)**
 
 ## Phase B — Full body conversion (pure)
 - [ ] B.1 lists: bulleted/numbered nested (2-space) + `to_do`
