@@ -32,8 +32,8 @@ Scope: **import only**, additive — never modify the export path.
 - [ ] ▢ **CP-D** — note with a new tag name: tag page auto-created in related DB + linked  ← **YOU ARE HERE (needs token)**
 
 ## Phase E — Attachments upload
-- [ ] E.0 ⚠️ confirm `@notionhq/client` (currently ^2.2.15) supports file uploads; else bump SDK or use REST upload endpoint
-- [ ] E.1 `import/uploadFiles.ts`: upload local file → file id; content-keyed cache; external URLs kept as external
+- [x] E.0 ✅ resolved: installed SDK is 2.3.0 with **no** file-upload API. Decision: **direct REST** (`fetch` to /v1/file_uploads), NO SDK bump — isolated in uploadFiles.ts, no risk to export.
+- [x] E.1 `import/uploadFiles.ts`: REST two-step upload (`notionUploadFile`) → file_upload id; pure `uploadAll` dedup cache. External URLs handled in E.2 (kept as external image)
 - [ ] E.2 `mdToBlocks` image/file blocks carry local-path placeholder; engine resolves → file id before append
 - [ ] ▢ **CP-E** — note with an image renders in Notion; missing local file → skip + notice
 
