@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { Notion } from "../notion.js";
+import { Notion, type NotionPage } from "../notion.js";
 import type { AppConfig } from "../config.js";
+import { mapPageToMeta, filenameFor, type PropNames } from "../frontmatter.js";
 import { parseMarkdown } from "./parseFile.js";
 import { readImportMeta, identityKey, buildProperties } from "./properties.js";
 import { mdToBlocks, type BlockInput } from "./mdToBlocks.js";
@@ -17,9 +18,19 @@ export interface ImportPlan {
 export interface ImportResult {
   file: string;
   title: string;
-  action: "created" | "would-create";
+  action: "created" | "updated" | "would-create" | "would-update";
   pageId: string;
   blocks: number;
+}
+
+/** Find an existing page whose identity key matches `key`, reusing the export's
+ *  page->meta mapping so import/export identity stay consistent. Pure. */
+export function findExisting(pages: NotionPage[], key: string, names: PropNames = {}): string | null {
+  for (const page of pages) {
+    const meta = mapPageToMeta(page, new Map(), names);
+    if (filenameFor(meta).replace(/\.md$/, "") === key) return page.id;
+  }
+  return null;
 }
 
 /** Pure: a Markdown file's text + the target DB schema -> what to write.
@@ -60,14 +71,26 @@ export async function runImport(
   const plan = planImport(text, schema, opts.map);
   for (const note of plan.notes) log(`    ! ${note}`);
 
+  // Upsert: match an existing page by identity key (title + Created date).
+  const pages = await notion.queryDatabase(dbId);
+  const existingId = findExisting(pages, plan.key, config.props ?? {});
+
   if (opts.dryRun) {
-    log(`  · ${opts.file}: would create "${plan.title}" in ${dbName} (${plan.blocks.length} blocks)`);
-    return [{ file: opts.file, title: plan.title, action: "would-create", pageId: "", blocks: plan.blocks.length }];
+    const verb = existingId ? "update" : "create";
+    log(`  · ${opts.file}: would ${verb} "${plan.title}" in ${dbName} (${plan.blocks.length} blocks)`);
+    return [{ file: opts.file, title: plan.title, action: existingId ? "would-update" : "would-create", pageId: existingId ?? "", blocks: plan.blocks.length }];
+  }
+
+  if (existingId) {
+    await notion.updateProps(existingId, plan.properties);
+    await notion.deleteChildren(existingId); // replace body so re-runs don't duplicate blocks
+    if (plan.blocks.length) await notion.appendChildren(existingId, plan.blocks);
+    log(`  ✓ ${opts.file}: updated "${plan.title}" in ${dbName} (${plan.blocks.length} blocks)`);
+    return [{ file: opts.file, title: plan.title, action: "updated", pageId: existingId, blocks: plan.blocks.length }];
   }
 
   const pageId = await notion.createPage(dbId, plan.properties);
   if (plan.blocks.length) await notion.appendChildren(pageId, plan.blocks);
   log(`  ✓ ${opts.file}: created "${plan.title}" in ${dbName} (${plan.blocks.length} blocks)`);
-
   return [{ file: opts.file, title: plan.title, action: "created", pageId, blocks: plan.blocks.length }];
 }

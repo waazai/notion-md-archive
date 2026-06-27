@@ -23,8 +23,8 @@ Scope: **import only**, additive — never modify the export path.
 
 ## Phase C — Full properties + upsert
 - [x] C.1 `properties.ts`: type→select/status, created→date, multi_select/select tags (names); schema-driven types; `--map` overrides; relation deferred to D; unmapped → notice
-- [ ] C.2 upsert: query DB, match by `identityKey` (title + Created date) → update vs create; no `notion_id` in files
-- [ ] ▢ **CP-C** — import then re-import: updates in place, **no duplicate**; props correct
+- [x] C.2 upsert: query DB, match by `identityKey` (title + Created date) → update vs create; body replaced (deleteChildren) so no dup blocks; no `notion_id` in files
+- [ ] ▢ **CP-C** — import then re-import: updates in place, **no duplicate**; props correct  ← **YOU ARE HERE (needs token)**
 
 ## Phase D — Relation tags + auto-create
 - [ ] D.1 `import/tagsWrite.ts`: relation type → `relation.database_id` → name→id (cached); auto-create missing tag page; inverse of `tags.ts`
