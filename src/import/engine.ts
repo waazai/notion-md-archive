@@ -3,8 +3,9 @@ import { Notion, type NotionPage } from "../notion.js";
 import type { AppConfig } from "../config.js";
 import { mapPageToMeta, filenameFor, type PropNames } from "../frontmatter.js";
 import { parseMarkdown } from "./parseFile.js";
-import { readImportMeta, identityKey, buildProperties } from "./properties.js";
+import { readImportMeta, identityKey, buildProperties, type RelationTagRequest } from "./properties.js";
 import { mdToBlocks, type BlockInput } from "./mdToBlocks.js";
+import { resolveRelationTags } from "./tagsWrite.js";
 import type { ImportOptions } from "./options.js";
 
 export interface ImportPlan {
@@ -12,6 +13,7 @@ export interface ImportPlan {
   key: string; // identity key (YYYY-MM-DD-slug), used for upsert in C.2
   properties: Record<string, unknown>;
   notes: string[];
+  relationTags?: RelationTagRequest;
   blocks: BlockInput[];
 }
 
@@ -48,6 +50,7 @@ export function planImport(
     key: identityKey(meta),
     properties: built.properties,
     notes: built.notes,
+    relationTags: built.relationTags,
     blocks: mdToBlocks(body),
   };
 }
@@ -70,6 +73,21 @@ export async function runImport(
   const text = await readFile(opts.file, "utf8");
   const plan = planImport(text, schema, opts.map);
   for (const note of plan.notes) log(`    ! ${note}`);
+
+  // Relation tags: resolve names to page ids (auto-creating missing ones), then
+  // merge into the properties. Skipped under --dry-run (it would create pages).
+  if (plan.relationTags) {
+    if (opts.dryRun) {
+      log(`    ! would resolve ${plan.relationTags.names.length} relation tag(s) on "${plan.relationTags.prop}" (may create pages)`);
+    } else {
+      plan.properties[plan.relationTags.prop] = await resolveRelationTags(
+        notion,
+        plan.relationTags.databaseId,
+        plan.relationTags.names,
+        log
+      );
+    }
+  }
 
   // Upsert: match an existing page by identity key (title + Created date).
   const pages = await notion.queryDatabase(dbId);

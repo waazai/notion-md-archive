@@ -28,8 +28,8 @@ Scope: **import only**, additive — never modify the export path.
 
 ## Phase D — Relation tags + auto-create
 - [x] D.1 `import/tagsWrite.ts`: relation type → `relation.database_id` → name→id (cached, case-insensitive); auto-create missing tag page; inverse of `tags.ts`. buildProperties captures the RelationTagRequest
-- [ ] D.2 wire tag paths: multi_select/select → names; relation → D.1; prop absent → skip + notice
-- [ ] ▢ **CP-D** — note with a new tag name: tag page auto-created in related DB + linked
+- [x] D.2 wire tag paths in engine: multi_select/select → names (C.1); relation → resolveRelationTags + merge; prop absent → skip + notice; dry-run notes only (no page creation)
+- [ ] ▢ **CP-D** — note with a new tag name: tag page auto-created in related DB + linked  ← **YOU ARE HERE (needs token)**
 
 ## Phase E — Attachments upload
 - [ ] E.0 ⚠️ confirm `@notionhq/client` (currently ^2.2.15) supports file uploads; else bump SDK or use REST upload endpoint

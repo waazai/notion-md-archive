@@ -22,4 +22,13 @@ describe("planImport", () => {
     expect(plan.title).toBe("Just Title");
     expect(plan.blocks).toEqual([]);
   });
+
+  it("forwards a relation-tag request to the plan (D.2)", () => {
+    const relSchema = {
+      Name: { type: "title" },
+      Category: { type: "relation", relation: { database_id: "db9" } },
+    };
+    const plan = planImport("---\ntitle: T\ntags: [X]\n---\n", relSchema);
+    expect(plan.relationTags).toEqual({ prop: "Category", databaseId: "db9", names: ["X"] });
+  });
 });
