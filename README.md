@@ -83,6 +83,42 @@ The frontmatter key is always `tags` (a list — a note can have many). Override
 
 `tags` may point at a relation **or** a native multi-select/select property.
 
+## Import (local Markdown → Notion)
+
+The reverse direction: push a Markdown file (or a whole folder) **into** a Notion database.
+Frontmatter maps to properties; the body converts to Notion blocks. Re-runs are idempotent — a
+file matches an existing page by the same identity key and is **updated**, not duplicated.
+
+```bash
+npm run import -- --file note.md --db <id>             # one file
+npm run import -- --dir ./out/MyDB --db <id>           # every *.md in a folder (skips INDEX.md)
+npm run import -- --file note.md --db <id> --dry-run   # show the plan; no writes/uploads/creates
+npm run import -- --file note.md --db <id> --map tags=Topics,type=Kind
+```
+
+- `--file` / `--dir` (one required) — source. `--db` — target DB (falls back to config / `NOTES_DB_ID`).
+- `--map k=Prop,…` — override the YAML-key → Notion-property name (defaults mirror the export candidates).
+- **Token** comes from `.env` / `config.json` only — never a CLI flag, so it can't leak into shell history.
+
+What it does:
+- **Properties** — `title`→title-typed prop, `type`→select/status, `created`→date,
+  `tags`→multi_select/select by name. A **relation** tag (a tag that is itself a *page*) is
+  resolved name→page-id in the related DB, **auto-creating** a tag page when the name is new.
+- **Body** — inverse of the export converter: headings, nested lists, to-do, quote, callout,
+  code (+lang), divider, equation, table, inline marks (incl. `***bold+italic***`).
+- **Images** — a local `![](attachments/…)` is uploaded via Notion's file-upload API; external
+  `http(s)` images stay external; a missing local file drops just that one image block.
+- **Upsert** — identity = the export filename stem `YYYY-MM-DD-slug`; existing page updated in
+  place (body replaced so blocks don't duplicate), else created. `--dir` isolates each file —
+  one failure is recorded and the batch continues.
+
+Spec & plan: [SPEC-import.md](SPEC-import.md) · [tasks/plan.md](tasks/plan.md) · [tasks/todo.md](tasks/todo.md).
+
+> **Status:** Phases A–F.2 built — 136 vitest tests + `tsc --noEmit` green offline.
+> **Known gaps:** image upload *send* currently hits `HTTP 400` (CP-E — likely the multipart
+> Blob needs a MIME type; fix pending); non-image file attachments deferred; live checkpoints
+> (CP-A/C/D/E) need token verification. See [tasks/todo.md](tasks/todo.md) for the full list.
+
 ## Design decisions (locked)
 
 - **Identity = filename = `YYYY-MM-DD-{slug(title)}.md`** (date = note's `Created`).
@@ -121,4 +157,7 @@ unit-tested without network. CLI/GUI are thin shells over `runExport(config)`.
   image and confirm files land in `attachments/` and links resolve offline.
 - **`Sync` formula flip** — confirm visually in Notion after a write-back.
 - **Phase 5 GUI** — local web window to configure token / pick database / set output folder.
-- Import script (old-data → Notion) is a separate, future effort.
+- **Import image upload (CP-E)** — the file-upload *send* step returns `HTTP 400`; needs the
+  multipart Blob's MIME type set (and the error body surfaced) before images land in Notion.
+- **Import — deferred:** non-image file attachments (`[label](attachments/x.pdf)`); intra-batch
+  duplicate-key matching (`--dir` queries existing pages once); live checkpoint verification.

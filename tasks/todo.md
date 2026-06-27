@@ -40,8 +40,14 @@ Scope: **import only**, additive — never modify the export path.
 ## Phase F — Batch + dry-run + docs
 - [x] F.1 `--dir`: import all `*.md` (excl. INDEX.md, sorted); shared schema/pages fetched once; per-file try/catch → `failed`; summary `created/updated/failed`. (Note: intra-batch dup keys not re-matched — pages queried once.)
 - [x] F.2 `--dry-run`: prints plan via pure `describePlan` (props + block count + relation tags) + would-upload/would-resolve notes + create-vs-update; zero writes/creates/uploads; token never printed
-- [ ] F.3 `import` script in `package.json`; README import section; update `CLAUDE.md`/`PLAN.md`/`TODO.md`
-- [ ] ▢ **CP-F** — dry-run matches a real run; batch-import a folder cleanly
+- [x] F.3 `import` script in `package.json` (done A.1); README import section + CLAUDE.md import module section + TODO.md pointer updated
+- [ ] ▢ **CP-F** — dry-run matches a real run; batch-import a folder cleanly  ← pending live verification (token); blocked-ish on CP-E upload fix for image-bearing notes
+
+## Open items carried forward (record)
+- [ ] **CP-E upload bug** — file-upload *send* returns `HTTP 400`. Fix: log `await sent.text()` in [src/import/uploadFiles.ts](../src/import/uploadFiles.ts), then set Blob MIME from extension.
+- [ ] **Non-image file attachments** — `[label](attachments/x.pdf)` → file block + upload (images-only shipped in E.2).
+- [ ] **Intra-batch dup keys** — `--dir` queries existing pages once; two new files with the same identity key both create. Re-query or track created keys if it matters.
+- [ ] **Live checkpoints** — CP-A/C/D/E (token) + CP-B manual Notion spot-check.
 
 ## Verify (each phase, before its ▢)
 - [ ] `npm test` **and** `npm run typecheck` from `notion-md-archive/` (not workspace root)

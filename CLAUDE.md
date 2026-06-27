@@ -11,8 +11,10 @@ archive — one `.md` per note (YAML frontmatter + converted body), `attachments
 `INDEX.md` — then writes `Last synced = now` back to each note so the Notion-side
 `Sync` formula flips. A local GUI window is planned (Phase 5, paused).
 
-Scope is **export only**. The import direction (old data → Notion) is a separate, future
-effort — do not fold it in here.
+The reverse direction — **import** (local Markdown → Notion) — is now built as a separate
+module under `src/import/` (subcommand `npm run import`). It is **additive**: it must not
+change the export path. See [SPEC-import.md](SPEC-import.md) and [tasks/](tasks/) for its
+spec/plan/status. Phases A–F.2 done; known gap: image-upload send hits `HTTP 400` (CP-E).
 
 ## Commands
 
@@ -21,6 +23,9 @@ npm install
 npm run export                # full export to ${OUT_BASE}/${dbName}/
 npm run export -- --since     # only notes changed since last sync
 npm run export -- --dry-run   # no writes / downloads / write-back
+npm run import -- --file note.md --db <id>     # import one Markdown file → Notion
+npm run import -- --dir ./out/MyDB --db <id>   # import a folder of *.md (skips INDEX.md)
+npm run import -- --file note.md --db <id> --dry-run --map tags=Topics
 npm test                      # vitest (run mode)
 npm run typecheck             # tsc --noEmit
 npx tsx scripts/demo.ts       # offline: emit a sample archive, no network
@@ -53,6 +58,28 @@ Module responsibilities:
 - **`attachments.ts`** — collect media urls, download (signed urls expire ~1h), stable
   content-keyed names, idempotent; converter rewrites to relative paths.
 - **`engine.ts`** — orchestration; CLI and the future GUI are thin shells over `runExport`.
+
+### Import module (`src/import/`, additive — mirrors the export modules)
+
+```
+parseFile.ts (frontmatter/body)  ┐
+properties.ts (frontmatter→props,│ all PURE, offline-tested
+  identity key, relation request)├─► engine.ts (planImport PURE; runImport)
+mdToBlocks.ts (GFM→blocks, PURE) ┘        │  ─► createPage/updateChildren
+tagsWrite.ts (relation name→id, auto-create)   (network via notion.ts)
+uploadFiles.ts (REST file upload + collect/apply, PURE helpers)
+options.ts (CLI flags→ImportOptions, PURE)   cli.ts (thin shell)
+```
+
+- **Network stays in `notion.ts`** (the single throttle queue). Import write primitives
+  (`createPage`/`appendChildren`/`updateProps`/`deleteChildren`) are methods there;
+  `tagsWrite`/`uploadFiles` are orchestrators that call them (or REST for file upload, which
+  the SDK 2.3.0 lacks). **Don't** spin up a second Notion `Client` — it breaks the rate limit.
+- **Identity matches the export filename stem** (`findExisting` reuses `mapPageToMeta`/
+  `filenameFor`), so import upsert and export identity can never drift apart.
+- `mdToBlocks` / `properties` / `parseFile` / `uploadFiles` helpers are **pure** — test them
+  offline; the round-trip test (`importRoundTrip.test.ts`) feeds `blocksToGFM` output back
+  through `mdToBlocks` to guard the export↔import contract.
 
 ## Conventions & invariants (do not break)
 
@@ -110,6 +137,13 @@ in mind:
 
 ## Status
 
-P0–P4 complete, offline-green (vitest + typecheck pass). Untested until a token is
-available: live DB query (CP0), attachment download (CP3), `Sync` flip after write-back
-(CP4). Phase 5 (GUI) is paused. The project is **not yet under git** in this workspace.
+**Export** P0–P4 complete; CP0–CP4 verified against a real DB. Phase 5 (GUI) paused.
+
+**Import** (`src/import/`) Phases A–F.2 complete, offline-green (136 vitest tests + typecheck).
+Built on branch `feat/import-module`. Open items (full list in [tasks/todo.md](tasks/todo.md)):
+- ⚠️ **CP-E image upload** — the file-upload *send* step returns `HTTP 400`. Suspect: the
+  multipart `Blob` has no MIME type (sent as `application/octet-stream`). First step: log
+  `await sent.text()` to read Notion's message, then set the Blob `type` from the extension.
+- **Deferred:** non-image file attachments; intra-batch duplicate-key re-matching (`--dir`
+  queries existing pages once at the start).
+- **Live checkpoints** CP-A/C/D/E need token verification; CP-B manual spot-check deferred.
