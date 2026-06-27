@@ -35,10 +35,10 @@ Scope: **import only**, additive — never modify the export path.
 - [x] E.0 ✅ resolved: installed SDK is 2.3.0 with **no** file-upload API. Decision: **direct REST** (`fetch` to /v1/file_uploads), NO SDK bump — isolated in uploadFiles.ts, no risk to export.
 - [x] E.1 `import/uploadFiles.ts`: REST two-step upload (`notionUploadFile`) → file_upload id; pure `uploadAll` dedup cache. External URLs handled in E.2 (kept as external image)
 - [x] E.2 `mdToBlocks` standalone `![](…)` → image block (http=external, local=`_local`); engine uploads (resolved vs the .md dir) + applyUploads → file_upload before append; missing upload → block dropped. (Non-image file links deferred — images were the ask.)
-- [ ] ▢ **CP-E** — note with an image renders in Notion; missing local file → skip + notice  ← **YOU ARE HERE (needs token)**
+- [ ] ▢ **CP-E** — ⚠️ BUG TO REVISIT: live test hit `HTTP 400` on the upload *send* step (create step OK). Prime suspect: `new Blob([buf])` has no MIME type → multipart part goes as `application/octet-stream`, Notion rejects. First fix = log `await sent.text()` to see Notion's message, then likely set Blob `type` from extension. Image render in Notion still unverified.
 
 ## Phase F — Batch + dry-run + docs
-- [ ] F.1 `--dir`: import all `*.md`; per-file summary `created/updated/skipped/failed`
+- [x] F.1 `--dir`: import all `*.md` (excl. INDEX.md, sorted); shared schema/pages fetched once; per-file try/catch → `failed`; summary `created/updated/failed`. (Note: intra-batch dup keys not re-matched — pages queried once.)
 - [ ] F.2 `--dry-run`: print plan (props + block count + create/update + tags-to-create + files-to-upload); zero writes/creates/uploads; token never printed
 - [ ] F.3 `import` script in `package.json`; README import section; update `CLAUDE.md`/`PLAN.md`/`TODO.md`
 - [ ] ▢ **CP-F** — dry-run matches a real run; batch-import a folder cleanly
