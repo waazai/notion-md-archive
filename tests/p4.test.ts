@@ -16,6 +16,16 @@ describe("shouldExport (--since)", () => {
     expect(shouldExport({ lastEdited: "2026-06-24T10:00:00Z", lastSynced: "2026-06-25T10:00:00Z" }, true)).toBe(false);
     expect(shouldExport({ lastEdited: "2026-06-24T10:00:00Z", lastSynced: "2026-06-24T10:00:00Z" }, true)).toBe(false);
   });
+  it("absorbs the write-back self-edit within tolerance -> skip", () => {
+    // last_edited bumped ~0.5s after we wrote last_synced = now
+    expect(shouldExport({ lastEdited: "2026-06-24T10:00:00.500Z", lastSynced: "2026-06-24T10:00:00.000Z" }, true)).toBe(false);
+    // edge: 59s after still within the 1-min window
+    expect(shouldExport({ lastEdited: "2026-06-24T10:00:59Z", lastSynced: "2026-06-24T10:00:00Z" }, true)).toBe(false);
+  });
+  it("a real edit beyond tolerance -> export", () => {
+    // 90s after the sync = a genuine post-sync edit
+    expect(shouldExport({ lastEdited: "2026-06-24T10:01:30Z", lastSynced: "2026-06-24T10:00:00Z" }, true)).toBe(true);
+  });
 });
 
 describe("buildIndexMarkdown", () => {

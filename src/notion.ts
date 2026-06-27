@@ -103,6 +103,49 @@ export class Notion {
       })
     );
   }
+
+  /** Import: create a page in a database with the given properties. Returns its id. */
+  async createPage(databaseId: string, properties: Record<string, unknown>): Promise<string> {
+    const res: any = await this.schedule(() =>
+      this.client.pages.create({
+        parent: { database_id: databaseId },
+        properties: properties as any,
+      })
+    );
+    return res.id;
+  }
+
+  /** Import (upsert): overwrite a page's properties. */
+  async updateProps(pageId: string, properties: Record<string, unknown>): Promise<void> {
+    await this.schedule(() =>
+      this.client.pages.update({ page_id: pageId, properties: properties as any })
+    );
+  }
+
+  /** Import (upsert): delete a page's existing top-level children, so the body can
+   *  be re-appended without duplicating blocks on re-import. */
+  async deleteChildren(pageId: string): Promise<void> {
+    const kids = await this.listChildren(pageId);
+    for (const k of kids) {
+      await this.schedule(() => this.client.blocks.delete({ block_id: k.id }));
+    }
+  }
+
+  /** Import: append child blocks to a page, batched under Notion's 100/req limit. */
+  async appendChildren(pageId: string, children: unknown[]): Promise<void> {
+    for (const batch of chunk(children, 100)) {
+      await this.schedule(() =>
+        this.client.blocks.children.append({ block_id: pageId, children: batch as any })
+      );
+    }
+  }
+}
+
+/** Split an array into batches of at most `size` (pure; used for the 100-child cap). */
+export function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
 
 function sleep(ms: number): Promise<void> {
