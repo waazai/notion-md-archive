@@ -34,8 +34,8 @@ Scope: **import only**, additive — never modify the export path.
 ## Phase E — Attachments upload
 - [x] E.0 ✅ resolved: installed SDK is 2.3.0 with **no** file-upload API. Decision: **direct REST** (`fetch` to /v1/file_uploads), NO SDK bump — isolated in uploadFiles.ts, no risk to export.
 - [x] E.1 `import/uploadFiles.ts`: REST two-step upload (`notionUploadFile`) → file_upload id; pure `uploadAll` dedup cache. External URLs handled in E.2 (kept as external image)
-- [ ] E.2 `mdToBlocks` image/file blocks carry local-path placeholder; engine resolves → file id before append
-- [ ] ▢ **CP-E** — note with an image renders in Notion; missing local file → skip + notice
+- [x] E.2 `mdToBlocks` standalone `![](…)` → image block (http=external, local=`_local`); engine uploads (resolved vs the .md dir) + applyUploads → file_upload before append; missing upload → block dropped. (Non-image file links deferred — images were the ask.)
+- [ ] ▢ **CP-E** — note with an image renders in Notion; missing local file → skip + notice  ← **YOU ARE HERE (needs token)**
 
 ## Phase F — Batch + dry-run + docs
 - [ ] F.1 `--dir`: import all `*.md`; per-file summary `created/updated/skipped/failed`

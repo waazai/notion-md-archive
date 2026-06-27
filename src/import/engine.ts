@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { Notion, type NotionPage } from "../notion.js";
 import type { AppConfig } from "../config.js";
 import { mapPageToMeta, filenameFor, type PropNames } from "../frontmatter.js";
@@ -6,6 +7,7 @@ import { parseMarkdown } from "./parseFile.js";
 import { readImportMeta, identityKey, buildProperties, type RelationTagRequest } from "./properties.js";
 import { mdToBlocks, type BlockInput } from "./mdToBlocks.js";
 import { resolveRelationTags } from "./tagsWrite.js";
+import { collectLocalMedia, applyUploads, uploadAll, notionUploadFile } from "./uploadFiles.js";
 import type { ImportOptions } from "./options.js";
 
 export interface ImportPlan {
@@ -89,6 +91,14 @@ export async function runImport(
     }
   }
 
+  // Local attachments: upload each (resolved relative to the .md file) and rewrite
+  // the image blocks to file_upload references. Skipped under --dry-run.
+  const localPaths = collectLocalMedia(plan.blocks);
+  let blocks = plan.blocks;
+  if (localPaths.length && opts.dryRun) {
+    log(`    ! would upload ${localPaths.length} attachment(s)`);
+  }
+
   // Upsert: match an existing page by identity key (title + Created date).
   const pages = await notion.queryDatabase(dbId);
   const existingId = findExisting(pages, plan.key, config.props ?? {});
@@ -99,16 +109,22 @@ export async function runImport(
     return [{ file: opts.file, title: plan.title, action: existingId ? "would-update" : "would-create", pageId: existingId ?? "", blocks: plan.blocks.length }];
   }
 
+  if (localPaths.length) {
+    const baseDir = dirname(opts.file);
+    const idByPath = await uploadAll(localPaths, (p) => notionUploadFile(config.token, resolve(baseDir, p)));
+    blocks = applyUploads(plan.blocks, idByPath);
+  }
+
   if (existingId) {
     await notion.updateProps(existingId, plan.properties);
     await notion.deleteChildren(existingId); // replace body so re-runs don't duplicate blocks
-    if (plan.blocks.length) await notion.appendChildren(existingId, plan.blocks);
-    log(`  ✓ ${opts.file}: updated "${plan.title}" in ${dbName} (${plan.blocks.length} blocks)`);
-    return [{ file: opts.file, title: plan.title, action: "updated", pageId: existingId, blocks: plan.blocks.length }];
+    if (blocks.length) await notion.appendChildren(existingId, blocks);
+    log(`  ✓ ${opts.file}: updated "${plan.title}" in ${dbName} (${blocks.length} blocks)`);
+    return [{ file: opts.file, title: plan.title, action: "updated", pageId: existingId, blocks: blocks.length }];
   }
 
   const pageId = await notion.createPage(dbId, plan.properties);
-  if (plan.blocks.length) await notion.appendChildren(pageId, plan.blocks);
-  log(`  ✓ ${opts.file}: created "${plan.title}" in ${dbName} (${plan.blocks.length} blocks)`);
-  return [{ file: opts.file, title: plan.title, action: "created", pageId, blocks: plan.blocks.length }];
+  if (blocks.length) await notion.appendChildren(pageId, blocks);
+  log(`  ✓ ${opts.file}: created "${plan.title}" in ${dbName} (${blocks.length} blocks)`);
+  return [{ file: opts.file, title: plan.title, action: "created", pageId, blocks: blocks.length }];
 }

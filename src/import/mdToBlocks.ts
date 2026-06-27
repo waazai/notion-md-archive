@@ -79,6 +79,20 @@ function parseBlocks(lines: string[], from: number): { blocks: BlockInput[]; nex
       continue;
     }
 
+    // Standalone image line: `![alt](url)`. http(s) -> external; else a local
+    // placeholder (`_local`) the engine resolves to an uploaded file (E.2).
+    const img = /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.exec(line);
+    if (img) {
+      const caption = img[1] ? parseInline(img[1]) : [];
+      const url = img[2]!;
+      const image = /^https?:\/\//.test(url)
+        ? { type: "external", external: { url }, caption }
+        : { _local: url, caption };
+      blocks.push({ type: "image", image });
+      i++;
+      continue;
+    }
+
     // GFM table: a row line immediately followed by a `| --- |` separator.
     if (isTableRow(line) && i + 1 < lines.length && isSeparatorRow(lines[i + 1]!)) {
       const res = parseTable(lines, i);
@@ -113,6 +127,7 @@ function isBlockStart(line: string): boolean {
     /^#{1,3}\s/.test(line) ||
     /^```/.test(line) ||
     /^>/.test(line) ||
+    /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.test(line) ||
     line.trim() === "$$" ||
     line.trim() === "---" ||
     matchListItem(line) !== null

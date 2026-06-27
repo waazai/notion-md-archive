@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { uploadAll } from "../src/import/uploadFiles.js";
+import { uploadAll, collectLocalMedia, applyUploads } from "../src/import/uploadFiles.js";
 
 describe("uploadAll (E.1)", () => {
   it("uploads each unique path exactly once (content-keyed cache)", async () => {
@@ -16,5 +16,30 @@ describe("uploadAll (E.1)", () => {
   it("returns an empty map for no paths", async () => {
     const map = await uploadAll([], async () => "x");
     expect(map.size).toBe(0);
+  });
+});
+
+describe("collectLocalMedia / applyUploads (E.2)", () => {
+  const blocks = [
+    { type: "paragraph", paragraph: { rich_text: [] } },
+    { type: "image", image: { _local: "attachments/a.png", caption: [] } },
+    { type: "image", image: { type: "external", external: { url: "http://x/p.png" }, caption: [] } },
+  ];
+
+  it("collects local media paths (deduped)", () => {
+    expect(collectLocalMedia(blocks)).toEqual(["attachments/a.png"]);
+  });
+
+  it("replaces _local with a file_upload reference via the id map", () => {
+    const out = applyUploads(blocks, new Map([["attachments/a.png", "up123"]]));
+    expect(out[1]).toEqual({
+      type: "image",
+      image: { type: "file_upload", file_upload: { id: "up123" }, caption: [] },
+    });
+  });
+
+  it("drops an image whose upload is missing, keeps the rest", () => {
+    const out = applyUploads(blocks, new Map());
+    expect(out.map((b) => b.type)).toEqual(["paragraph", "image"]); // local dropped, external kept
   });
 });

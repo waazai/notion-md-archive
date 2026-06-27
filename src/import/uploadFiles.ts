@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
+import type { BlockInput } from "./mdToBlocks.js";
 
 // Upload local attachments to Notion via the File Upload REST API. The SDK
 // (@notionhq/client 2.3.0) has no file-upload surface, so we call the endpoints
@@ -7,6 +8,43 @@ import { basename } from "node:path";
 // and isolated here so the export path is untouched.
 
 const NOTION_VERSION = "2022-06-28";
+
+/** Collect the local-attachment paths (`_local` placeholders) from a block list. */
+export function collectLocalMedia(blocks: BlockInput[]): string[] {
+  const out: string[] = [];
+  const walk = (bs: BlockInput[]) => {
+    for (const b of bs) {
+      const data = b[b.type] as any;
+      if (data?._local) out.push(data._local);
+      if (Array.isArray(data?.children)) walk(data.children);
+    }
+  };
+  walk(blocks);
+  return [...new Set(out)];
+}
+
+/** Replace each `_local` placeholder with a `file_upload` reference using the
+ *  path->id map. A block whose upload is missing is dropped. Pure (returns a new
+ *  list). */
+export function applyUploads(blocks: BlockInput[], idByPath: Map<string, string>): BlockInput[] {
+  const out: BlockInput[] = [];
+  for (const b of blocks) {
+    const data = b[b.type] as any;
+    if (data?._local) {
+      const id = idByPath.get(data._local);
+      if (!id) continue; // upload failed/missing -> drop the block
+      const { _local, ...rest } = data;
+      out.push({ type: b.type, [b.type]: { type: "file_upload", file_upload: { id }, ...rest } });
+      continue;
+    }
+    if (Array.isArray(data?.children)) {
+      out.push({ type: b.type, [b.type]: { ...data, children: applyUploads(data.children, idByPath) } });
+      continue;
+    }
+    out.push(b);
+  }
+  return out;
+}
 
 /** Dedup-and-upload: map each unique path to its uploaded id via `uploadOne`.
  *  Pure orchestration (the network lives in `uploadOne`), so it's unit-testable. */

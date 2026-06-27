@@ -164,3 +164,22 @@ describe("mdToBlocks — table (B.3)", () => {
     expect(b.map((x) => x.type)).toEqual(["paragraph", "table"]);
   });
 });
+
+describe("mdToBlocks — images (E.2)", () => {
+  it("external (http) image -> external url block", () => {
+    expect(mdToBlocks("![cap](https://x.com/a.png)")).toEqual([
+      { type: "image", image: { type: "external", external: { url: "https://x.com/a.png" }, caption: [t("cap")] } },
+    ]);
+  });
+
+  it("local image -> _local placeholder with empty caption", () => {
+    expect(mdToBlocks("![](attachments/abc.png)")).toEqual([
+      { type: "image", image: { _local: "attachments/abc.png", caption: [] } },
+    ]);
+  });
+
+  it("does not treat a mid-paragraph image marker as an image block", () => {
+    const b = mdToBlocks("see ![x](attachments/a.png) here");
+    expect(b[0]!.type).toBe("paragraph");
+  });
+});
