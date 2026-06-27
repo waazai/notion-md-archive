@@ -6,19 +6,20 @@ now` back to each note so the Notion-side `Sync` formula flips.
 
 Manual run today (CLI). A small local GUI window is planned (Phase 5, paused).
 
-## Status (2026-06-25)
+## Status (2026-06-27)
 
 | Phase | What | State |
 |---|---|---|
 | P0 | scaffold · config · auth · frontmatter · paths | ✅ done, CLI-verified |
 | P1 | core body (headings, lists, to-do, quote, code, newlines, recursion) | ✅ done, CLI-verified |
 | P2 | rich blocks (toggle flatten, callout alert, column, table, equation, bookmark) | ✅ done, CLI-verified |
-| P3 | attachments (download + rewrite + idempotent) | ⚠️ code done, **download not yet tested** |
-| P4 | INDEX + orphan detection + write-back + `--since` incremental | ✅ done; ⚠️ `Sync`-formula flip not yet eyeballed |
+| P3 | attachments (download + rewrite + idempotent) | ✅ done; download verified on a real note (CP3) |
+| P4 | INDEX + orphan detection + write-back + `--since` incremental | ✅ done; `Sync`-formula flip confirmed in Notion (CP4) |
 | P5 | GUI window | ⏸️ paused / not started |
+| Import | local Markdown → Notion (A–F) | ✅ done; all live checkpoints CP-A–F verified — see [Import](#import-local-markdown--notion) |
 
-45 vitest tests + `tsc --noEmit` pass. CLI runs clean against a real database; the only
-unexercised path is **attachment download** (notes with images/files).
+`tsc --noEmit` passes; export + import together carry the full vitest suite. Both CLIs run
+clean against a real database. Only the **Phase 5 GUI** remains unstarted.
 
 ## Setup
 
@@ -112,12 +113,23 @@ What it does:
   place (body replaced so blocks don't duplicate), else created. `--dir` isolates each file —
   one failure is recorded and the batch continues.
 
-Spec & plan: [SPEC-import.md](SPEC-import.md) · [tasks/plan.md](tasks/plan.md) · [tasks/todo.md](tasks/todo.md).
+Spec & plan: [SPEC-import.md](SPEC-import.md) · [tasks/plan.md](tasks/plan.md).
 
-> **Status:** Phases A–F.2 built — 136 vitest tests + `tsc --noEmit` green offline.
-> **Known gaps:** image upload *send* currently hits `HTTP 400` (CP-E — likely the multipart
-> Blob needs a MIME type; fix pending); non-image file attachments deferred; live checkpoints
-> (CP-A/C/D/E) need token verification. See [tasks/todo.md](tasks/todo.md) for the full list.
+> **Status:** Phases A–F complete — 136 vitest tests + `tsc --noEmit` green offline, and all
+> live checkpoints (CP-A–F) verified against a real database.
+
+### Known limitations
+
+- **Non-image file attachments are not uploaded.** Only local images (`![](attachments/…)`)
+  are uploaded; a non-image link like `[report](attachments/x.pdf)` is left as-is rather than
+  becoming a Notion file block.
+- **Intra-batch duplicate identity keys are not de-duplicated.** A `--dir` run queries the
+  database's existing pages **once** before the loop and never refreshes that snapshot. The
+  identity key is the filename stem `YYYY-MM-DD-{slug(title)}` (note `Created` date + title).
+  If two files in the *same* batch resolve to the *same* key (e.g. same date and title slug),
+  neither matches the snapshot, so **both are created** — you get two pages sharing one
+  identity key instead of the second updating the first. Cross-run is fine (the next run sees
+  a fresh snapshot); single-`--file` is unaffected; only same-batch key collisions trigger it.
 
 ## Design decisions (locked)
 
@@ -157,7 +169,6 @@ unit-tested without network. CLI/GUI are thin shells over `runExport(config)`.
   image and confirm files land in `attachments/` and links resolve offline.
 - **`Sync` formula flip** — confirm visually in Notion after a write-back.
 - **Phase 5 GUI** — local web window to configure token / pick database / set output folder.
-- **Import image upload (CP-E)** — the file-upload *send* step returns `HTTP 400`; needs the
-  multipart Blob's MIME type set (and the error body surfaced) before images land in Notion.
-- **Import — deferred:** non-image file attachments (`[label](attachments/x.pdf)`); intra-batch
-  duplicate-key matching (`--dir` queries existing pages once); live checkpoint verification.
+- **Import — deferred enhancements** (see [Known limitations](#known-limitations) above):
+  non-image file attachments; intra-batch duplicate-key de-duplication. Neither blocks use —
+  the import module is feature-complete and live-verified.

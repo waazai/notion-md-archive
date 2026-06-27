@@ -14,7 +14,7 @@ archive — one `.md` per note (YAML frontmatter + converted body), `attachments
 The reverse direction — **import** (local Markdown → Notion) — is now built as a separate
 module under `src/import/` (subcommand `npm run import`). It is **additive**: it must not
 change the export path. See [SPEC-import.md](SPEC-import.md) and [tasks/](tasks/) for its
-spec/plan/status. Phases A–F.2 done; known gap: image-upload send hits `HTTP 400` (CP-E).
+spec/plan/status. Phases A–F.2 done; image upload (CP-E) fixed + live-verified.
 
 ## Commands
 
@@ -139,11 +139,12 @@ in mind:
 
 **Export** P0–P4 complete; CP0–CP4 verified against a real DB. Phase 5 (GUI) paused.
 
-**Import** (`src/import/`) Phases A–F.2 complete, offline-green (136 vitest tests + typecheck).
-Built on branch `feat/import-module`. Open items (full list in [tasks/todo.md](tasks/todo.md)):
-- ⚠️ **CP-E image upload** — the file-upload *send* step returns `HTTP 400`. Suspect: the
-  multipart `Blob` has no MIME type (sent as `application/octet-stream`). First step: log
-  `await sent.text()` to read Notion's message, then set the Blob `type` from the extension.
-- **Deferred:** non-image file attachments; intra-batch duplicate-key re-matching (`--dir`
-  queries existing pages once at the start).
-- **Live checkpoints** CP-A/C/D/E need token verification; CP-B manual spot-check deferred.
+**Import** (`src/import/`) Phases A–F.2 complete, offline-green (136 vitest tests + typecheck)
+and **all live checkpoints CP-A–F verified against a real DB**. Built on branch
+`feat/import-module`. Notes (full list in [tasks/todo.md](tasks/todo.md)):
+- ✅ **CP-E image upload** — fixed + live-verified. The multipart `Blob` had no MIME type
+  (sent as `application/octet-stream`) → `HTTP 400` on the send step. Fix: set the Blob
+  `type` from the file extension (`mimeForPath` in `uploadFiles.ts`); send errors now append
+  Notion's response body. **Don't** drop the Blob MIME type — it regresses the upload.
+- **Deferred (not blocking):** non-image file attachments; intra-batch duplicate-key
+  re-matching (`--dir` queries existing pages once at the start).

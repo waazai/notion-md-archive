@@ -62,4 +62,4 @@ Scope: **export only**. Import script = separate future plan.
 - [x] CP3: verify attachment download on a real note with images — done 2026-06-26
 - [x] CP4: confirm `Sync` formula flips in Notion after a write-back — done 2026-06-26
 - [ ] P5 GUI (when resumed)
-- [~] Import module (local Markdown → Notion) — Phases A–F.2 built (136 tests), branch `feat/import-module`. Open: image-upload `HTTP 400` (CP-E) + live checkpoints. Full status: [tasks/todo.md](tasks/todo.md), spec: [SPEC-import.md](SPEC-import.md)
+- [x] Import module (local Markdown → Notion) — Phases A–F.2 built (136 tests), branch `feat/import-module`. All live checkpoints (CP-A–F) verified against a real DB. Deferred (not blocking): non-image file attachments, intra-batch dup keys. Full status: [tasks/todo.md](tasks/todo.md), spec: [SPEC-import.md](SPEC-import.md)

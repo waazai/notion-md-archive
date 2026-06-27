@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { basename, extname } from "node:path";
 import type { BlockInput } from "./mdToBlocks.js";
 
 // Upload local attachments to Notion via the File Upload REST API. The SDK
@@ -8,6 +8,26 @@ import type { BlockInput } from "./mdToBlocks.js";
 // and isolated here so the export path is untouched.
 
 const NOTION_VERSION = "2022-06-28";
+
+/** Minimal extension → MIME map. Notion rejects the upload send (HTTP 400) when
+ *  the multipart part has no/`application/octet-stream` content type, so we must
+ *  set the Blob `type` explicitly. Covers the image types `mdToBlocks` emits. */
+const MIME_BY_EXT: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".bmp": "image/bmp",
+  ".tiff": "image/tiff",
+  ".tif": "image/tiff",
+  ".heic": "image/heic",
+};
+
+export function mimeForPath(p: string): string {
+  return MIME_BY_EXT[extname(p).toLowerCase()] ?? "application/octet-stream";
+}
 
 /** Collect the local-attachment paths (`_local` placeholders) from a block list. */
 export function collectLocalMedia(blocks: BlockInput[]): string[] {
@@ -79,13 +99,17 @@ export async function notionUploadFile(token: string, absPath: string): Promise<
   }
   const { id, upload_url } = (await created.json()) as { id: string; upload_url: string };
 
-  // 2. Send the file bytes as multipart/form-data.
+  // 2. Send the file bytes as multipart/form-data. The Blob MUST carry a MIME
+  //    type — without it the part defaults to application/octet-stream and Notion
+  //    rejects the send with HTTP 400.
   const buf = await readFile(absPath);
+  const name = basename(absPath);
   const form = new FormData();
-  form.append("file", new Blob([buf]), basename(absPath));
+  form.append("file", new Blob([buf], { type: mimeForPath(absPath) }), name);
   const sent = await fetch(upload_url, { method: "POST", headers: auth, body: form });
   if (!sent.ok) {
-    throw new Error(`file upload send failed (${basename(absPath)}): HTTP ${sent.status}`);
+    const detail = await sent.text().catch(() => "");
+    throw new Error(`file upload send failed (${name}): HTTP ${sent.status}${detail ? ` — ${detail}` : ""}`);
   }
 
   return id;
