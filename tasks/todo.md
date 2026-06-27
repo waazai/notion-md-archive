@@ -24,10 +24,10 @@ Scope: **import only**, additive — never modify the export path.
 ## Phase C — Full properties + upsert
 - [x] C.1 `properties.ts`: type→select/status, created→date, multi_select/select tags (names); schema-driven types; `--map` overrides; relation deferred to D; unmapped → notice
 - [x] C.2 upsert: query DB, match by `identityKey` (title + Created date) → update vs create; body replaced (deleteChildren) so no dup blocks; no `notion_id` in files
-- [ ] ▢ **CP-C** — import then re-import: updates in place, **no duplicate**; props correct  ← **YOU ARE HERE (needs token)**
+- [x] ▢ **CP-C** — ✅ user OK'd ("good"); upsert + property mapping accepted (manual Notion re-check optional)
 
 ## Phase D — Relation tags + auto-create
-- [ ] D.1 `import/tagsWrite.ts`: relation type → `relation.database_id` → name→id (cached); auto-create missing tag page; inverse of `tags.ts`
+- [x] D.1 `import/tagsWrite.ts`: relation type → `relation.database_id` → name→id (cached, case-insensitive); auto-create missing tag page; inverse of `tags.ts`. buildProperties captures the RelationTagRequest
 - [ ] D.2 wire tag paths: multi_select/select → names; relation → D.1; prop absent → skip + notice
 - [ ] ▢ **CP-D** — note with a new tag name: tag page auto-created in related DB + linked
 

@@ -32,10 +32,18 @@ export function titleValue(title: string): { title: unknown[] } {
   return { title: [{ type: "text", text: { content: title } }] };
 }
 
+export interface RelationTagRequest {
+  prop: string;
+  databaseId: string;
+  names: string[];
+}
+
 export interface BuiltProps {
   properties: Record<string, unknown>;
-  /** Human-readable notices (ignored keys, deferred relation tags, …). */
+  /** Human-readable notices (ignored keys, skipped fields, …). */
   notes: string[];
+  /** Set when tags map to a relation property — resolved to ids by tagsWrite (Phase D). */
+  relationTags?: RelationTagRequest;
 }
 
 const HANDLED_KEYS = new Set(["title", "type", "tags", "created"]);
@@ -51,6 +59,7 @@ export function buildProperties(
 ): BuiltProps {
   const properties: Record<string, unknown> = {};
   const notes: string[] = [];
+  let relationTags: RelationTagRequest | undefined;
 
   // title — the DB's title-typed property (or the --map override).
   const titleProp =
@@ -85,7 +94,13 @@ export function buildProperties(
     } else if (prop && kind === "select") {
       properties[prop] = { select: { name: tags[0] } };
     } else if (prop && kind === "relation") {
-      notes.push(`tags: "${prop}" is a relation — not written yet (Phase D auto-creates tag pages)`);
+      const databaseId = schema[prop].relation?.database_id;
+      if (databaseId) {
+        relationTags = { prop, databaseId, names: tags };
+        notes.push(`tags: "${prop}" is a relation — resolving names to pages (auto-create if missing)`);
+      } else {
+        notes.push(`tags: "${prop}" is a relation but exposes no database_id (skipped)`);
+      }
     } else {
       notes.push(`tags: no writable target property (skipped)`);
     }
@@ -96,7 +111,7 @@ export function buildProperties(
     if (!HANDLED_KEYS.has(key)) notes.push(`ignored frontmatter key: ${key}`);
   }
 
-  return { properties, notes };
+  return { properties, notes, relationTags };
 }
 
 /** Coerce a Notion scalar property value from a string, by target prop type. */

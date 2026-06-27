@@ -81,6 +81,15 @@ describe("buildProperties (C.1)", () => {
     expect(notes.join(" ")).toMatch(/relation/i);
   });
 
+  it("captures a relation tag request when the relation exposes a database_id", () => {
+    const { properties, relationTags } = buildProperties(
+      { title: "x", tags: ["A", "B"] },
+      { Name: { type: "title" }, Category: { type: "relation", relation: { database_id: "db1" } } }
+    );
+    expect(properties.Category).toBeUndefined();
+    expect(relationTags).toEqual({ prop: "Category", databaseId: "db1", names: ["A", "B"] });
+  });
+
   it("honors a --map override for a field name", () => {
     const { properties } = buildProperties(
       { title: "Hi", type: "N" },
