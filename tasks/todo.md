@@ -39,7 +39,7 @@ Scope: **import only**, additive — never modify the export path.
 
 ## Phase F — Batch + dry-run + docs
 - [x] F.1 `--dir`: import all `*.md` (excl. INDEX.md, sorted); shared schema/pages fetched once; per-file try/catch → `failed`; summary `created/updated/failed`. (Note: intra-batch dup keys not re-matched — pages queried once.)
-- [ ] F.2 `--dry-run`: print plan (props + block count + create/update + tags-to-create + files-to-upload); zero writes/creates/uploads; token never printed
+- [x] F.2 `--dry-run`: prints plan via pure `describePlan` (props + block count + relation tags) + would-upload/would-resolve notes + create-vs-update; zero writes/creates/uploads; token never printed
 - [ ] F.3 `import` script in `package.json`; README import section; update `CLAUDE.md`/`PLAN.md`/`TODO.md`
 - [ ] ▢ **CP-F** — dry-run matches a real run; batch-import a folder cleanly
 

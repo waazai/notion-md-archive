@@ -27,6 +27,16 @@ export interface ImportResult {
   blocks: number;
 }
 
+/** Pure: a one-line summary of what a plan would write (for --dry-run output). */
+export function describePlan(plan: ImportPlan): string {
+  const parts: string[] = [];
+  const props = Object.keys(plan.properties);
+  if (props.length) parts.push(`props: ${props.join(", ")}`);
+  parts.push(`${plan.blocks.length} blocks`);
+  if (plan.relationTags) parts.push(`relation tags: ${plan.relationTags.names.join(", ")}`);
+  return parts.join("; ");
+}
+
 /** Pure: pick importable Markdown files from a directory listing — `.md` only
  *  (case-insensitive), excluding the export's `INDEX.md`, sorted. */
 export function selectMarkdownFiles(names: string[]): string[] {
@@ -144,7 +154,7 @@ async function importFile(
 
   if (opts.dryRun) {
     const verb = existingId ? "update" : "create";
-    log(`  · ${file}: would ${verb} "${plan.title}" in ${dbName} (${plan.blocks.length} blocks)`);
+    log(`  · ${file}: would ${verb} "${plan.title}" in ${dbName} — ${describePlan(plan)}`);
     return { file, title: plan.title, action: existingId ? "would-update" : "would-create", pageId: existingId ?? "", blocks: plan.blocks.length };
   }
 
