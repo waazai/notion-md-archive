@@ -19,10 +19,10 @@ Scope: **import only**, additive — never modify the export path.
 - [x] B.2 quote, callout (`> [!NOTE]`→callout+emoji), code(+lang), divider, equation
 - [x] B.3 GFM table → `table`/`table_row`
 - [x] B.4 round-trip tests vs `convert.test.ts` fixtures (modulo flatten/skip losses); added `***bold+italic***` inline support
-- [ ] ▢ **CP-B** — ✅ `npm test` (109) + `npm run typecheck` green; ⬜ user to spot-check one body in Notion  ← **YOU ARE HERE**
+- [~] ▢ **CP-B** — ✅ `npm test` (109) + `npm run typecheck` green; ⬜ manual Notion spot-check DEFERRED (no suitable file yet) — revisit when one is available
 
 ## Phase C — Full properties + upsert
-- [ ] C.1 `properties.ts`: type→select, created→date, rich_text, multi_select tags (names); schema-driven types; `--map`/`props` overrides; unmapped → notice
+- [x] C.1 `properties.ts`: type→select/status, created→date, multi_select/select tags (names); schema-driven types; `--map` overrides; relation deferred to D; unmapped → notice
 - [ ] C.2 upsert: query DB, match by `identityKey` (title + Created date) → update vs create; no `notion_id` in files
 - [ ] ▢ **CP-C** — import then re-import: updates in place, **no duplicate**; props correct
 

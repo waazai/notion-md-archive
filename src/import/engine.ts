@@ -10,6 +10,7 @@ export interface ImportPlan {
   title: string;
   key: string; // identity key (YYYY-MM-DD-slug), used for upsert in C.2
   properties: Record<string, unknown>;
+  notes: string[];
   blocks: BlockInput[];
 }
 
@@ -23,13 +24,19 @@ export interface ImportResult {
 
 /** Pure: a Markdown file's text + the target DB schema -> what to write.
  *  No network — composes parseMarkdown / properties / mdToBlocks. */
-export function planImport(text: string, schema: Record<string, any>): ImportPlan {
+export function planImport(
+  text: string,
+  schema: Record<string, any>,
+  map: Record<string, string> = {}
+): ImportPlan {
   const { frontmatter, body } = parseMarkdown(text);
   const meta = readImportMeta(frontmatter);
+  const built = buildProperties(frontmatter, schema, map);
   return {
     title: meta.title,
     key: identityKey(meta),
-    properties: buildProperties(meta, schema),
+    properties: built.properties,
+    notes: built.notes,
     blocks: mdToBlocks(body),
   };
 }
@@ -50,7 +57,8 @@ export async function runImport(
   const { name: dbName, properties: schema } = await notion.retrieveDatabase(dbId);
 
   const text = await readFile(opts.file, "utf8");
-  const plan = planImport(text, schema);
+  const plan = planImport(text, schema, opts.map);
+  for (const note of plan.notes) log(`    ! ${note}`);
 
   if (opts.dryRun) {
     log(`  · ${opts.file}: would create "${plan.title}" in ${dbName} (${plan.blocks.length} blocks)`);

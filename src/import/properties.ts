@@ -1,4 +1,5 @@
 import { slug } from "../paths.js";
+import { resolvePropName, NAME_CANDIDATES } from "../frontmatter.js";
 
 // Frontmatter -> Notion property payloads (the reverse of frontmatter.ts). Pure
 // & synchronous. A.3 covers the minimal path: title + identity key. Type/created/
@@ -31,15 +32,92 @@ export function titleValue(title: string): { title: unknown[] } {
   return { title: [{ type: "text", text: { content: title } }] };
 }
 
-/** Build the `properties` object for pages.create/update from note metadata and
- *  the target DB schema. Minimal for now: just the title, keyed by the DB's
- *  title-typed property. */
+export interface BuiltProps {
+  properties: Record<string, unknown>;
+  /** Human-readable notices (ignored keys, deferred relation tags, …). */
+  notes: string[];
+}
+
+const HANDLED_KEYS = new Set(["title", "type", "tags", "created"]);
+
+/** Build the `properties` object for pages.create/update from parsed frontmatter
+ *  and the target DB schema. Property types are read from the schema (mirrors the
+ *  export's `pickTagProp`/`resolvePropName`); `map` overrides the property name per
+ *  field. Relation-typed tags are deferred to Phase D. */
 export function buildProperties(
-  meta: ImportMeta,
-  schema: Record<string, any>
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  const titleProp = Object.keys(schema).find((k) => schema[k]?.type === "title");
-  if (titleProp) out[titleProp] = titleValue(meta.title);
-  return out;
+  frontmatter: Record<string, unknown>,
+  schema: Record<string, any>,
+  map: Record<string, string> = {}
+): BuiltProps {
+  const properties: Record<string, unknown> = {};
+  const notes: string[] = [];
+
+  // title — the DB's title-typed property (or the --map override).
+  const titleProp =
+    (map.title && schema[map.title] ? map.title : undefined) ??
+    Object.keys(schema).find((k) => schema[k]?.type === "title");
+  const title = readImportMeta(frontmatter).title;
+  if (titleProp) properties[titleProp] = titleValue(title);
+
+  // type — select / status / multi_select / rich_text.
+  if (typeof frontmatter.type === "string" && frontmatter.type) {
+    const prop = resolvePropName(schema, map.type, NAME_CANDIDATES.type);
+    const value = prop ? scalarValue(schema[prop].type, frontmatter.type) : null;
+    if (prop && value) properties[prop] = value;
+    else notes.push(`type: no writable target property (skipped)`);
+  }
+
+  // created — a date property.
+  if (typeof frontmatter.created === "string" && frontmatter.created) {
+    const prop = resolvePropName(schema, map.created, NAME_CANDIDATES.created);
+    if (prop && schema[prop].type === "date") {
+      properties[prop] = { date: { start: frontmatter.created } };
+    }
+  }
+
+  // tags — multi_select / select directly; relation deferred to Phase D.
+  const tags = toStringArray(frontmatter.tags);
+  if (tags.length) {
+    const prop = resolvePropName(schema, map.tags, NAME_CANDIDATES.tags);
+    const kind = prop ? schema[prop].type : undefined;
+    if (prop && kind === "multi_select") {
+      properties[prop] = { multi_select: tags.map((name) => ({ name })) };
+    } else if (prop && kind === "select") {
+      properties[prop] = { select: { name: tags[0] } };
+    } else if (prop && kind === "relation") {
+      notes.push(`tags: "${prop}" is a relation — not written yet (Phase D auto-creates tag pages)`);
+    } else {
+      notes.push(`tags: no writable target property (skipped)`);
+    }
+  }
+
+  // Notice any frontmatter key we didn't handle and isn't a name override target.
+  for (const key of Object.keys(frontmatter)) {
+    if (!HANDLED_KEYS.has(key)) notes.push(`ignored frontmatter key: ${key}`);
+  }
+
+  return { properties, notes };
+}
+
+/** Coerce a Notion scalar property value from a string, by target prop type. */
+function scalarValue(propType: string, value: string): unknown {
+  switch (propType) {
+    case "select":
+      return { select: { name: value } };
+    case "status":
+      return { status: { name: value } };
+    case "multi_select":
+      return { multi_select: [{ name: value }] };
+    case "rich_text":
+      return { rich_text: [{ type: "text", text: { content: value } }] };
+    default:
+      return null;
+  }
+}
+
+/** Normalize a frontmatter tags value (array, string, or absent) to string[]. */
+function toStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((x) => typeof x === "string") as string[];
+  if (typeof v === "string" && v.trim()) return [v.trim()];
+  return [];
 }
