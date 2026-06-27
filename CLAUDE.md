@@ -1,38 +1,33 @@
 # CLAUDE.md — notion-md-archive
 
-Guidance for AI coding agents working in this subproject. For user-facing setup/usage
-see [README.md](README.md); for the plan and task status see [PLAN.md](PLAN.md) and
-[TODO.md](TODO.md).
+Guidance for AI coding agents working in this subproject. For user-facing setup, the full
+command list, and the Markdown ⇄ Notion conversion table, see [README.md](README.md).
 
 ## What this is
 
-A CLI tool that exports a Notion **database** to a local GitHub-Flavored-Markdown (GFM)
-archive — one `.md` per note (YAML frontmatter + converted body), `attachments/`,
-`INDEX.md` — then writes `Last synced = now` back to each note so the Notion-side
-`Sync` formula flips. A local GUI window is planned (Phase 5, paused).
+A CLI tool with two directions over a Notion **database**:
+- **export** — database → local GFM archive (one `.md` per note = YAML frontmatter + converted
+  body, plus `attachments/` and `INDEX.md`), then write `Last synced = now` back so the
+  Notion-side `Sync` formula flips.
+- **import** (`npm run import`, module under `src/import/`) — local Markdown → Notion;
+  frontmatter → properties, body → blocks, idempotent upsert by identity key. It is
+  **additive**: it must never change the export path.
 
-The reverse direction — **import** (local Markdown → Notion) — is now built as a separate
-module under `src/import/` (subcommand `npm run import`). It is **additive**: it must not
-change the export path. See [SPEC-import.md](SPEC-import.md) and [tasks/](tasks/) for its
-spec/plan/status. Phases A–F.2 done; image upload (CP-E) fixed + live-verified.
+Both directions are complete and live-verified (export P0–P4, import A–F). A local GUI window
+is the only unstarted piece (paused) — see [README.md Roadmap](README.md#roadmap).
 
 ## Commands
 
-```bash
-npm install
-npm run export                # full export to ${OUT_BASE}/${dbName}/
-npm run export -- --since     # only notes changed since last sync
-npm run export -- --dry-run   # no writes / downloads / write-back
-npm run import -- --file note.md --db <id>     # import one Markdown file → Notion
-npm run import -- --dir ./out/MyDB --db <id>   # import a folder of *.md (skips INDEX.md)
-npm run import -- --file note.md --db <id> --dry-run --map tags=Topics
-npm test                      # vitest (run mode)
-npm run typecheck             # tsc --noEmit
-npx tsx scripts/demo.ts       # offline: emit a sample archive, no network
-```
+Full usage (export + import flags) is in [README.md](README.md#usage). The rule that matters
+here: always run `npm test` **and** `npm run typecheck` **from this directory** before
+declaring a change done — running vitest from the workspace root pulls in unrelated sibling
+projects.
 
-Always run `npm test` **and** `npm run typecheck` from this directory before declaring a
-change done (running vitest from the workspace root picks up unrelated sibling projects).
+```bash
+npm test            # vitest (run mode)
+npm run typecheck   # tsc --noEmit
+npx tsx scripts/demo.ts   # offline: emit a sample archive, no network
+```
 
 ## Architecture
 
@@ -80,6 +75,14 @@ options.ts (CLI flags→ImportOptions, PURE)   cli.ts (thin shell)
 - `mdToBlocks` / `properties` / `parseFile` / `uploadFiles` helpers are **pure** — test them
   offline; the round-trip test (`importRoundTrip.test.ts`) feeds `blocksToGFM` output back
   through `mdToBlocks` to guard the export↔import contract.
+
+### Import boundaries (folded from the import spec)
+- **Ask first** before: widening the `mdToBlocks` subset beyond what `convert.ts` emits
+  (general-Markdown support); deleting/archiving Notion pages that lost their local file
+  (reverse-orphan handling); changing the missing-tag policy away from auto-create.
+- **Never:** store a `notion_id` in files (filename = identity); set the `Sync` formula from
+  code (Notion-owned); run live network writes in unit tests or require a token to build/test
+  the pure path.
 
 ## Conventions & invariants (do not break)
 
@@ -137,14 +140,12 @@ in mind:
 
 ## Status
 
-**Export** P0–P4 complete; CP0–CP4 verified against a real DB. Phase 5 (GUI) paused.
-
-**Import** (`src/import/`) Phases A–F.2 complete, offline-green (136 vitest tests + typecheck)
-and **all live checkpoints CP-A–F verified against a real DB**. Built on branch
-`feat/import-module`. Notes (full list in [tasks/todo.md](tasks/todo.md)):
-- ✅ **CP-E image upload** — fixed + live-verified. The multipart `Blob` had no MIME type
-  (sent as `application/octet-stream`) → `HTTP 400` on the send step. Fix: set the Blob
-  `type` from the file extension (`mimeForPath` in `uploadFiles.ts`); send errors now append
-  Notion's response body. **Don't** drop the Blob MIME type — it regresses the upload.
+Phase status lives in [README.md](README.md#status) (export P0–P4, import A–F — done;
+GUI paused). Built on branch `feat/import-module`. The two notes that matter when touching
+this code:
+- ✅ **CP-E image upload regression guard** — the multipart `Blob` had no MIME type (sent as
+  `application/octet-stream`) → `HTTP 400` on the send step. Fix: set the Blob `type` from the
+  file extension (`mimeForPath` in `uploadFiles.ts`); send errors now append Notion's response
+  body. **Don't drop the Blob MIME type — it regresses the upload.**
 - **Deferred (not blocking):** non-image file attachments; intra-batch duplicate-key
   re-matching (`--dir` queries existing pages once at the start).
