@@ -18,8 +18,8 @@ Scope: **import only**, additive — never modify the export path.
 - [x] B.1 lists: bulleted/numbered nested (2-space) + `to_do` (mdToBlocks rewritten line-based)
 - [x] B.2 quote, callout (`> [!NOTE]`→callout+emoji), code(+lang), divider, equation
 - [x] B.3 GFM table → `table`/`table_row`
-- [ ] B.4 round-trip tests vs `convert.test.ts` fixtures (modulo flatten/skip losses)
-- [ ] ▢ **CP-B** — `npm test` + `npm run typecheck` green; spot-check one body in Notion
+- [x] B.4 round-trip tests vs `convert.test.ts` fixtures (modulo flatten/skip losses); added `***bold+italic***` inline support
+- [ ] ▢ **CP-B** — ✅ `npm test` (109) + `npm run typecheck` green; ⬜ user to spot-check one body in Notion  ← **YOU ARE HERE**
 
 ## Phase C — Full properties + upsert
 - [ ] C.1 `properties.ts`: type→select, created→date, rich_text, multi_select tags (names); schema-driven types; `--map`/`props` overrides; unmapped → notice

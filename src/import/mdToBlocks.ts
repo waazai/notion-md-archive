@@ -268,6 +268,7 @@ function parseTable(lines: string[], from: number): { block: BlockInput; next: n
 const INLINE: { re: RegExp; make: (m: RegExpExecArray) => RichTextInput }[] = [
   { re: /^\[([^\]]*)\]\(([^)]+)\)/, make: (m) => mkText(m[1]!, {}, m[2]!) },
   { re: /^`([^`]+)`/, make: (m) => mkText(m[1]!, { code: true }) },
+  { re: /^\*\*\*([^*]+)\*\*\*/, make: (m) => mkText(m[1]!, { bold: true, italic: true }) },
   { re: /^\*\*([^*]+)\*\*/, make: (m) => mkText(m[1]!, { bold: true }) },
   { re: /^~~([^~]+)~~/, make: (m) => mkText(m[1]!, { strikethrough: true }) },
   { re: /^\*([^*]+)\*/, make: (m) => mkText(m[1]!, { italic: true }) },
