@@ -76,14 +76,14 @@ Wire the Import tab to the engine; additive `/run` branch.
 **Verify:** test drives mode=import → injected runImport, asserts opts (dir/map/dryRun) + SSE done summary. ✅
 **AC:** spec criterion 9. ✅
 
-## T7 — Source Browse (file/folder picker)  ▢
+## T7 — Source Browse (file/folder picker)  ✅
 Server-side filesystem picker for the Import Source.
 
-- [ ] `GET /browse?path=` → `{ path, parent, entries:[{name,dir}] }` (read-only listing, localhost).
-- [ ] `app.js` + `styles.css`: a small modal to navigate folders and pick a file **or** folder → fills Source.
+- [x] `GET /browse?path=` → `{ path, parent, entries:[{name,dir}] }` (read-only, folders first, localhost).
+- [x] `app.js` + `styles.css`: modal navigates folders, picks a file **or** folder (Use this folder) → fills Source.
 
-**Verify:** Browse… opens, navigates, picking fills the Source path; `/browse` never writes.
-**AC:** spec criterion 10.
+**Verify:** test against a temp dir (folders-first, parent, 400 on bad path); live `/browse` listed `src/`. ✅
+**AC:** spec criterion 10. ✅
 
 ## T8 — DB-aware Map hint  ▢
 Show what each frontmatter key resolves to in the selected DB.

@@ -1,8 +1,9 @@
 import { createServer as createHttpServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
-import { statSync } from "node:fs";
+import { statSync, readdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { dirname, join, extname } from "node:path";
+import { dirname, join, extname, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { peekConfig, writeConfigJson } from "./config.js";
 import { Notion } from "./notion.js";
@@ -196,6 +197,21 @@ async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<
     try {
       const databases = await deps.listDatabases(token);
       sendJson(res, 200, { databases });
+    } catch (err) {
+      sendJson(res, 400, { error: (err as Error).message });
+    }
+    return;
+  }
+
+  // GET /browse?path= — read-only directory listing for the Source picker.
+  // Folders first; `parent` lets the modal navigate up. Localhost only.
+  if (req.method === "GET" && url === "/browse") {
+    const target = resolve(new URL(req.url ?? "/", "http://localhost").searchParams.get("path") || homedir());
+    try {
+      const entries = readdirSync(target, { withFileTypes: true })
+        .map((d) => ({ name: d.name, dir: d.isDirectory() }))
+        .sort((a, b) => (a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name)));
+      sendJson(res, 200, { path: target, parent: dirname(target), entries });
     } catch (err) {
       sendJson(res, 400, { error: (err as Error).message });
     }
