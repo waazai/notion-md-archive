@@ -9,6 +9,7 @@ import { Notion } from "./notion.js";
 import { resolvePropName, NAME_CANDIDATES } from "./frontmatter.js";
 import { runExport, type RunSummary, type Logger } from "./engine.js";
 import { runImport, selectMarkdownFiles, type ImportResult } from "./import/engine.js";
+import { EMBEDDED } from "./gui/embedded.generated.js";
 import type { ImportOptions } from "./import/options.js";
 import type { AppConfig } from "./config.js";
 import type { PropNames } from "./frontmatter.js";
@@ -104,6 +105,21 @@ const CONTENT_TYPES: Record<string, string> = {
 
 function contentTypeFor(file: string): string {
   return CONTENT_TYPES[extname(file)] ?? "application/octet-stream";
+}
+
+/** Bytes for a whitelisted static route. Default source is the embedded copy
+ *  (src/gui/embedded.generated.ts) so a packaged single-file executable has no
+ *  src/gui/ directory dependency. With GUI_DEV=1 (set by `npm run gui`) read
+ *  fresh from disk so a styles.css edit shows on reload without a rebuild. */
+async function getAsset(file: string): Promise<Buffer | string | null> {
+  if (process.env.GUI_DEV) {
+    try {
+      return await readFile(join(GUI_DIR, file));
+    } catch {
+      return null;
+    }
+  }
+  return EMBEDDED[file] ?? null;
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -263,18 +279,15 @@ async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<
 
   const file = ROUTES[url];
   if (req.method === "GET" && file) {
-    try {
-      // Read fresh each request — no caching — so a styles.css edit shows on
-      // reload without restarting the server (supports the restyle workflow).
-      const body = await readFile(join(GUI_DIR, file));
-      res.writeHead(200, { "content-type": contentTypeFor(file) });
-      res.end(body);
-      return;
-    } catch {
+    const body = await getAsset(file);
+    if (body == null) {
       res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
       res.end("Failed to read " + file);
       return;
     }
+    res.writeHead(200, { "content-type": contentTypeFor(file) });
+    res.end(body);
+    return;
   }
 
   res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
