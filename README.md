@@ -14,7 +14,7 @@ CLI today, plus a small **local GUI** (`npm run gui`). For internals / contribut
 ## Status (2026-06-28)
 
 Export **P0–P4**, Import **A–F**, and the **GUI** (T1–T8) are complete and verified against a
-real database — `tsc --noEmit` + the full vitest suite (158 tests) pass offline.
+real database — `tsc --noEmit` + the full vitest suite (163 tests) pass offline.
 
 ## Setup
 
@@ -137,6 +137,29 @@ A local web page (zero new deps, no build step) over the same engine:
 - **Map** field in both tabs shows the **DB-aware default mapping** for the selected database.
 
 Design notes: [build_doc/SPEC-gui.md](build_doc/SPEC-gui.md).
+
+## Download & run (Windows)
+
+Prefer a click-to-run app over the CLI? Releases ship a standalone Windows executable — no
+Node, no npm, no checkout.
+
+1. Download `notion-md-archive.exe` from the
+   [latest release](https://github.com/waazai/notion-md-archive/releases).
+2. Double-click it. Your browser opens at `http://localhost:4517` (the GUI above).
+3. Enter your token, pick a database, Run. `config.json` and the `out/` archive land next to
+   the `.exe`.
+
+On first launch Windows SmartScreen may warn about an unknown publisher (the binary is
+unsigned) — choose **More info → Run anyway**.
+
+Build it yourself (needs [bun](https://bun.sh)):
+
+```bash
+npm run build:win    # → dist/notion-md-archive.exe (bun --compile, ~95 MB)
+```
+
+macOS/Linux executables aren't published yet — run from source (`npm run gui`) there for now.
+See [build_doc/PLAN-release.md](build_doc/PLAN-release.md) for the packaging plan.
 
 ## Roadmap
 
