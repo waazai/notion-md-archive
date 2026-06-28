@@ -3,8 +3,10 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join, extname } from "node:path";
 import { spawn } from "node:child_process";
-import { peekConfig } from "./config.js";
+import { peekConfig, writeConfigJson } from "./config.js";
 import { Notion } from "./notion.js";
+import { runExport, type RunSummary, type Logger } from "./engine.js";
+import type { AppConfig } from "./config.js";
 import type { PropNames } from "./frontmatter.js";
 
 /** Raw persisted settings the GUI reads (token unmasked, internal only). */
@@ -20,6 +22,8 @@ export interface RawConfig {
 export interface ServerDeps {
   readConfig?: () => RawConfig;
   listDatabases?: (token: string) => Promise<{ id: string; name: string }[]>;
+  writeConfig?: (cfg: RawConfig) => void;
+  run?: (config: AppConfig, log: Logger, opts: { dryRun?: boolean; since?: boolean }) => Promise<RunSummary>;
 }
 
 /** Mask a token for display: keep a 4-char tail hint, hide the rest. */
@@ -68,8 +72,70 @@ async function readJsonBody(req: IncomingMessage): Promise<any> {
   return raw ? JSON.parse(raw) : {};
 }
 
-async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<ServerDeps>): Promise<void> {
+/** Fan-out of engine log lines to all connected SSE clients. */
+interface SseHub {
+  add(res: ServerResponse): void;
+  broadcastLine(line: string): void;
+  broadcastEvent(event: string, data: unknown): void;
+}
+
+function createSseHub(): SseHub {
+  const clients = new Set<ServerResponse>();
+  return {
+    add(res) {
+      clients.add(res);
+      res.on("close", () => clients.delete(res));
+    },
+    broadcastLine(line) {
+      // A `\n` inside one log line becomes multiple SSE `data:` lines.
+      const payload = "data: " + line.split("\n").join("\ndata: ") + "\n\n";
+      for (const c of clients) c.write(payload);
+    },
+    broadcastEvent(event, data) {
+      const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+      for (const c of clients) c.write(payload);
+    },
+  };
+}
+
+async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<ServerDeps>, hub: SseHub): Promise<void> {
   const url = (req.url ?? "/").split("?")[0]!;
+
+  // GET /log — Server-Sent Events: engine log lines stream here while a run is
+  // active, ending with `event: done` (summary) or `event: error`.
+  if (req.method === "GET" && url === "/log") {
+    res.writeHead(200, {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache",
+      connection: "keep-alive",
+    });
+    res.write(": connected\n\n");
+    hub.add(res);
+    return; // stays open
+  }
+
+  // POST /run — validate, persist config.json, then run; the log streams to /log.
+  if (req.method === "POST" && url === "/run") {
+    const body = await readJsonBody(req);
+    const saved = deps.readConfig();
+    const token = body.token || saved.token;
+    const databaseIds: string[] = body.databaseIds?.length ? body.databaseIds : saved.databaseIds;
+    const outBase = body.outBase || saved.outBase;
+    const props = body.props ?? saved.props;
+    if (!token || !databaseIds?.length) {
+      sendJson(res, 400, { error: "Token and at least one database are required." });
+      return;
+    }
+    const config: AppConfig = { token, databaseIds, outBase, props };
+    deps.writeConfig({ token, databaseIds, outBase, props });
+    sendJson(res, 202, { ok: true }); // ack; the run streams asynchronously
+    const log: Logger = (line) => hub.broadcastLine(line);
+    deps
+      .run(config, log, { dryRun: !!body.dryRun, since: !!body.since })
+      .then((summary) => hub.broadcastEvent("done", summary))
+      .catch((err) => hub.broadcastEvent("error", { message: (err as Error).message }));
+    return;
+  }
 
   // GET /config — persisted settings to pre-fill the form (token masked).
   if (req.method === "GET" && url === "/config") {
@@ -130,9 +196,12 @@ export function createServer(deps: ServerDeps = {}): Server {
     // A fresh short-lived client per interactive call — not concurrent with an
     // export/import run, so it doesn't violate the single-throttle-queue rule.
     listDatabases: deps.listDatabases ?? ((token: string) => new Notion(token).listDatabases()),
+    writeConfig: deps.writeConfig ?? writeConfigJson,
+    run: deps.run ?? runExport,
   };
+  const hub = createSseHub();
   return createHttpServer((req, res) => {
-    handle(req, res, resolved).catch((err) => {
+    handle(req, res, resolved, hub).catch((err) => {
       res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
       res.end(String(err));
     });

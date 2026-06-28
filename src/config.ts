@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { PropNames } from "./frontmatter.js";
 
@@ -59,6 +59,18 @@ export function peekConfig(): { token: string; databaseIds: string[]; outBase: s
   const outBase = json.outBase ?? process.env.OUT_BASE ?? "./out";
   const databaseIds = rawDb.split(",").map((s) => s.trim()).filter(Boolean);
   return { token, databaseIds, outBase, props: json.props };
+}
+
+/** Persist GUI settings to config.json so the next launch — and the CLI — reuse
+ *  them. Written pretty so a human can read/edit it. */
+export function writeConfigJson(cfg: { token: string; databaseIds: string[]; outBase: string; props?: PropNames }): void {
+  const out: Record<string, unknown> = {
+    token: cfg.token,
+    databaseIds: cfg.databaseIds,
+    outBase: cfg.outBase,
+  };
+  if (cfg.props) out.props = cfg.props;
+  writeFileSync(CONFIG_JSON, JSON.stringify(out, null, 2) + "\n");
 }
 
 function loadDotEnv(): void {

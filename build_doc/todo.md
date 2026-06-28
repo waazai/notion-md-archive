@@ -41,17 +41,18 @@ The one extra network read.
 
 ---
 
-## T4 — Run export + live log + persist  ▢  ← core value
+## T4 — Run export + live log + persist  ✅  ← core value
 Full end-to-end export path through the GUI.
 
-- [ ] `POST /run`: validate (token + ≥1 db) → write `config.json` → start run.
-- [ ] SSE `GET /log`: engine `log` callback → `data: <line>\n\n`; final `event: done` carries `RunSummary`; `event: error` on throw.
-- [ ] `app.js`: Run → POST → open `EventSource('/log')` → append lines → render summary.
+- [x] `POST /run`: validate (token + ≥1 db) → `writeConfigJson` → 202 ack → async run.
+- [x] SSE `GET /log`: engine `log` callback → `data: <line>`; final `event: done` (`RunSummary`); `event: error` on throw.
+- [x] `app.js`: Run → open `EventSource('/log')` → POST → append lines → render summary.
 
-**Verify:** Run (export) writes archive, log streams each `✓ <file>` live, summary matches CLI; `config.json` persisted; subsequent `npm run export` (CLI) uses it with no flags.
-**AC:** spec criteria 4, 5, 6.
+**Verify:** live dry-run through the GUI streamed real lines + `event: done` summary
+(Notes: 17 notes); `config.json` written by `/run` for CLI reuse. ✅
+**AC:** spec criteria 4, 5, 6. Live **non-dry-run** export = manual CP-2 step (mutates Notion write-back).
 
-### ▶ CP-2 — full export path works via GUI and matches CLI output. Product usable here.
+### ▶ CP-2 — full export path works via GUI and matches CLI output. Product usable here.  ◀ STOP
 
 ---
 

@@ -79,9 +79,80 @@ function fillDatabases(databases) {
   if (remembered && databases.some((d) => d.id === remembered)) sel.value = remembered;
 }
 
-// Placeholder — replaced in T4 (/run + SSE).
+// Run: subscribe to the live log first, then POST /run. The engine's lines
+// stream back over SSE; `done` carries the summary, `error` a failure message.
 $("run").addEventListener("click", () => {
-  appendLog("(run: not wired yet — T4)");
+  const mode = document.querySelector('input[name="mode"]:checked')?.value ?? "export";
+  const token = $("token").value.trim();
+  const databaseIds = [$("database").value].filter(Boolean);
+
+  if (!token && !saved.tokenSet) return appendLog("Enter a token first.");
+  if (mode === "export" && !databaseIds.length) return appendLog("Pick a database first.");
+
+  $("log").textContent = "";
+  $("run").disabled = true;
+  const finish = () => {
+    $("run").disabled = false;
+  };
+
+  const es = new EventSource("/log");
+  es.onopen = async () => {
+    try {
+      const res = await fetch("/run", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token,
+          databaseIds,
+          outBase: $("output").value.trim(),
+          mode,
+          dryRun: $("dry-run").checked,
+          since: $("since").checked,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        appendLog(`Run failed: ${err.error ?? res.status}`);
+        es.close();
+        finish();
+      }
+    } catch (err) {
+      appendLog(`Run failed: ${err}`);
+      es.close();
+      finish();
+    }
+  };
+
+  es.onmessage = (ev) => appendLog(ev.data);
+
+  es.addEventListener("done", (ev) => {
+    try {
+      const summary = JSON.parse(ev.data);
+      for (const d of summary.databases ?? []) {
+        appendLog(
+          `— ${d.name}: ${d.notes} notes (${d.written} written, ${d.skipped} skipped), ` +
+            `${d.attachments} attachments, ${d.orphans} orphans`
+        );
+      }
+    } catch {
+      /* malformed summary — the log lines above still stand */
+    }
+    es.close();
+    finish();
+  });
+
+  es.addEventListener("error", (ev) => {
+    // Native EventSource errors carry no data; our server-sent error event does.
+    if (ev.data) {
+      try {
+        appendLog(`Error: ${JSON.parse(ev.data).message}`);
+      } catch {
+        appendLog("Error during run.");
+      }
+      es.close();
+      finish();
+    }
+  });
 });
 
 function appendLog(line) {
