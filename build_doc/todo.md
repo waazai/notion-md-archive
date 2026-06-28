@@ -56,13 +56,43 @@ Full end-to-end export path through the GUI.
 
 ---
 
-## T5 — Import mode  ▢
-Additive branch reusing T4 machinery.
+## T5 — Layout: Export / Import tabs  ▢   (redesign 2026-06-28)
+Frontend-only refactor of the existing shell — reuses all current endpoints.
 
-- [ ] `app.js`: mode toggle shows import fields (file/dir, target db, `--map`); hides export-only flags.
-- [ ] `POST /run` import branch → `runImport` with parsed options; same SSE log path.
+- [ ] `index.html` + `styles.css`: replace the radio toggle with **tabs** (Export | Import);
+      move **Output** into the Export tab; add a **Source** field (text for now) + dry-run to
+      the Import tab; add an (empty) **Map** field to both; separate **Run Export** / **Run Import** buttons.
+- [ ] `app.js`: tab switching keeps Token + Database shared; `/config` still prefills Output;
+      Export Run path unchanged (still green via `/run` + SSE).
 
-**Verify:** Import mode runs `runImport` over a file/dir, streams log, shows result.
-**AC:** spec criterion 1 (import direction) + full acceptance list.
+**Verify:** tabs switch without losing token/db; export still runs end-to-end (live dry-run).
+**AC:** spec criteria 8 (+ 4–6 still hold).
+
+## T6 — Import run  ▢
+Wire the Import tab to the engine; additive `/run` branch.
+
+- [ ] `POST /run` import branch → `runImport` (parse Source = file/dir, db, map, dryRun); same SSE log path.
+- [ ] `app.js`: Run Import sends Source + dryRun + map; renders the import summary.
+
+**Verify:** Run Import over a `./out/<db>` folder streams the log + result (dry-run first).
+**AC:** spec criterion 9.
+
+## T7 — Source Browse (file/folder picker)  ▢
+Server-side filesystem picker for the Import Source.
+
+- [ ] `GET /browse?path=` → `{ path, parent, entries:[{name,dir}] }` (read-only listing, localhost).
+- [ ] `app.js` + `styles.css`: a small modal to navigate folders and pick a file **or** folder → fills Source.
+
+**Verify:** Browse… opens, navigates, picking fills the Source path; `/browse` never writes.
+**AC:** spec criterion 10.
+
+## T8 — DB-aware Map hint  ▢
+Show what each frontmatter key resolves to in the selected DB.
+
+- [ ] `GET /schema?db=&token=` → `{ map:{ type, tags, created, lastSynced } }` via `resolvePropName`.
+- [ ] `app.js`: on database select, fetch `/schema`, render the resolved mapping as a greyed hint by both Map fields.
+
+**Verify:** selecting Notes shows e.g. `tags→Categories`; empty Map field = defaults.
+**AC:** spec criterion 11.
 
 ### ▶ CP-3 — feature complete; run the spec's full acceptance list. `npm test` + `npm run typecheck` green.

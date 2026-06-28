@@ -16,9 +16,11 @@ Backend → frontend speaks exactly this. Nothing else crosses the line.
 
 | Channel | Shape |
 |---|---|
-| `GET /config` | `{ token: "secret_…last4" (masked), databaseIds: string[], outBase: string, props?: {...} }` |
+| `GET /config` | `{ tokenSet, tokenHint, databaseIds: string[], outBase: string, props?: {...} }` (token masked) |
 | `POST /databases` `{token}` | `{ databases: [{ id, name }] }` or `{ error }` |
-| `POST /run` `{token, databaseIds, outBase, props?, mode, dryRun, since, import fields}` | `202 {ok:true}` then stream on `/log` |
+| `GET /schema` `?db=&token=` | `{ map: { type, tags, created, lastSynced } }` — DB-aware default mapping (T8) |
+| `GET /browse` `?path=` | `{ path, parent, entries: [{ name, dir }] }` — read-only fs listing for the Source picker (T7) |
+| `POST /run` `{token, databaseIds, outBase, props?, mode, dryRun, since, source}` | `202 {ok:true}` then stream on `/log` |
 | `GET /log` (SSE) | `data: <log line>\n\n` per line; final `event: done\ndata: <RunSummary JSON>\n\n`; on failure `event: error\ndata: <message>` |
 
 Once this table is implemented, the frontend can be rewritten/restyled freely against it.
@@ -39,14 +41,19 @@ src/gui/app.js       NEW  fetch + EventSource glue against the contract above
 ```
 T1 backend skeleton + static serving ──┬─► T2 /config load + prefill
                                         ├─► T3 Connect → DB picker
-                                        └─► T4 Run export + SSE + persist ──► T5 Import mode
+                                        └─► T4 Run export + SSE + persist   [done; CP-2]
+                                                  │
+   (redesign 2026-06-28, post-CP-2)               ▼
+   T5 Export/Import tabs (FE refactor) ─► T6 Import run ─► T7 Source Browse
+                                        └─────────────────► T8 DB-aware Map hint
 ```
 
-- T1 unblocks everything (server must serve the page first).
-- T2 / T3 are independent of each other (both only need T1).
-- T4 is the core value path; it needs the page (T1) and ideally the picker (T3) for a real DB,
-  but can be exercised with a typed DB id if T3 slips.
-- T5 reuses the whole T4 machinery (SSE, persist) — pure additive branch.
+- **T1–T4 done** (CP-2). The redesign re-slices the remaining frontend + two small endpoints.
+- T5 is a frontend-only refactor (tabs, move Output into Export tab); it reuses every existing
+  endpoint and must keep the export path green.
+- T6 adds the `/run` import branch (reuses T4's SSE + persist machinery).
+- T7 (`/browse` picker) and T8 (`/schema` Map hint) are independent enhancements, both need T5's
+  tab layout; T7 also makes T6's Source easier to fill but isn't required for T6.
 
 ## Vertical slicing (each task = one complete path, page → server → result)
 
