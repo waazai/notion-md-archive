@@ -30,14 +30,14 @@ Persistence read: reopening pre-fills last settings.
 
 ---
 
-## T3 — Connect → database picker  ▢
+## T3 — Connect → database picker  ✅
 The one extra network read.
 
-- [ ] `POST /databases` `{token}` → list `{id,name}` via `notion.ts` (no second Client).
-- [ ] `app.js`: Connect button → POST → populate dropdown; show error on bad token.
+- [x] `POST /databases` `{token}` → `Notion.listDatabases()` (search). Blank token reuses saved.
+- [x] `app.js`: Connect → POST → fill dropdown, re-select remembered db; readable error on failure.
 
-**Verify:** valid token → dropdown lists DBs; bad token → readable error.
-**AC:** spec criterion 3.
+**Verify:** live `/databases` listed real DBs (Tags, Notes); bad token → 400 error. ✅
+**AC:** spec criterion 3. ✅
 
 ---
 

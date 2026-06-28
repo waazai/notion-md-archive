@@ -37,10 +37,49 @@ for (const radio of document.querySelectorAll('input[name="mode"]')) {
 }
 syncMode();
 
-// Placeholders — replaced in T2 (/config), T3 (/databases), T4 (/run + SSE).
-$("connect").addEventListener("click", () => {
-  appendLog("(connect: not wired yet — T3)");
+// Connect: list the databases the integration can see, fill the dropdown, and
+// re-select the one remembered from last run.
+$("connect").addEventListener("click", async () => {
+  const token = $("token").value.trim();
+  if (!token && !saved.tokenSet) {
+    appendLog("Enter a token first.");
+    return;
+  }
+  $("connect").disabled = true;
+  try {
+    const res = await fetch("/databases", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      appendLog(`Connect failed: ${data.error ?? res.status}`);
+      return;
+    }
+    fillDatabases(data.databases ?? []);
+    appendLog(`Connected — ${data.databases?.length ?? 0} database(s).`);
+  } catch (err) {
+    appendLog(`Connect failed: ${err}`);
+  } finally {
+    $("connect").disabled = false;
+  }
 });
+
+function fillDatabases(databases) {
+  const sel = $("database");
+  sel.innerHTML = "";
+  if (!databases.length) {
+    sel.append(new Option("— no databases shared with the integration —", ""));
+    return;
+  }
+  for (const db of databases) sel.append(new Option(db.name, db.id));
+  // Re-select the remembered database if it is still in the list.
+  const remembered = saved.databaseIds[0];
+  if (remembered && databases.some((d) => d.id === remembered)) sel.value = remembered;
+}
+
+// Placeholder — replaced in T4 (/run + SSE).
 $("run").addEventListener("click", () => {
   appendLog("(run: not wired yet — T4)");
 });

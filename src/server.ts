@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, extname } from "node:path";
 import { spawn } from "node:child_process";
 import { peekConfig } from "./config.js";
+import { Notion } from "./notion.js";
 import type { PropNames } from "./frontmatter.js";
 
 /** Raw persisted settings the GUI reads (token unmasked, internal only). */
@@ -18,6 +19,7 @@ export interface RawConfig {
  *  tests pass fakes so the server is exercised offline without a Notion token. */
 export interface ServerDeps {
   readConfig?: () => RawConfig;
+  listDatabases?: (token: string) => Promise<{ id: string; name: string }[]>;
 }
 
 /** Mask a token for display: keep a 4-char tail hint, hide the rest. */
@@ -59,6 +61,13 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+async function readJsonBody(req: IncomingMessage): Promise<any> {
+  const chunks: Buffer[] = [];
+  for await (const c of req) chunks.push(c as Buffer);
+  const raw = Buffer.concat(chunks).toString("utf8");
+  return raw ? JSON.parse(raw) : {};
+}
+
 async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<ServerDeps>): Promise<void> {
   const url = (req.url ?? "/").split("?")[0]!;
 
@@ -72,6 +81,24 @@ async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<
       outBase: cfg.outBase,
       props: cfg.props,
     });
+    return;
+  }
+
+  // POST /databases {token} — list the databases the integration can see.
+  // A blank token reuses the saved one (the page only ever holds a masked hint).
+  if (req.method === "POST" && url === "/databases") {
+    const body = await readJsonBody(req);
+    const token = body.token || deps.readConfig().token;
+    if (!token) {
+      sendJson(res, 400, { error: "Token is required." });
+      return;
+    }
+    try {
+      const databases = await deps.listDatabases(token);
+      sendJson(res, 200, { databases });
+    } catch (err) {
+      sendJson(res, 400, { error: (err as Error).message });
+    }
     return;
   }
 
@@ -100,6 +127,9 @@ async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<
 export function createServer(deps: ServerDeps = {}): Server {
   const resolved: Required<ServerDeps> = {
     readConfig: deps.readConfig ?? peekConfig,
+    // A fresh short-lived client per interactive call — not concurrent with an
+    // export/import run, so it doesn't violate the single-throttle-queue rule.
+    listDatabases: deps.listDatabases ?? ((token: string) => new Notion(token).listDatabases()),
   };
   return createHttpServer((req, res) => {
     handle(req, res, resolved).catch((err) => {
