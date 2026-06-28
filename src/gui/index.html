@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>notion-md-archive</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>notion-md-archive</h1>
+
+      <div class="row">
+        <label for="token">Token</label>
+        <input id="token" type="password" placeholder="secret_…" autocomplete="off" />
+        <button id="connect" type="button">Connect</button>
+      </div>
+
+      <div class="row">
+        <label for="database">Database</label>
+        <select id="database">
+          <option value="">— connect to list databases —</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="output">Output</label>
+        <input id="output" type="text" placeholder="~/NotionArchive" />
+      </div>
+
+      <hr />
+
+      <div class="row modes">
+        <label><input type="radio" name="mode" value="export" checked /> Export</label>
+        <label><input type="radio" name="mode" value="import" /> Import</label>
+      </div>
+
+      <fieldset id="export-opts" class="opts">
+        <label><input id="dry-run" type="checkbox" /> Dry run</label>
+        <label><input id="since" type="checkbox" /> Since last sync</label>
+      </fieldset>
+
+      <fieldset id="import-opts" class="opts" hidden>
+        <div class="row">
+          <label for="source">Source</label>
+          <input id="source" type="text" placeholder="./out/MyDB or ./note.md" />
+        </div>
+        <div class="row">
+          <label for="map">Map</label>
+          <input id="map" type="text" placeholder="tags=Topics,type=Kind" />
+        </div>
+        <label><input id="import-dry-run" type="checkbox" /> Dry run</label>
+      </fieldset>
+
+      <div class="row run-row">
+        <button id="run" type="button" class="primary">▶ Run</button>
+      </div>
+
+      <hr />
+
+      <pre id="log" class="log" aria-live="polite"></pre>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
