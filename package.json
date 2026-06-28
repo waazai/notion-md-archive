@@ -9,6 +9,7 @@
     "import": "tsx src/main.ts import",
     "gui": "GUI_DEV=1 tsx src/server.ts",
     "embed:gui": "tsx scripts/embed-gui.ts",
+    "build:win": "npm run embed:gui && bun build --compile --target=bun-windows-x64 --define IS_PACKAGED=true src/exe.ts --outfile dist/notion-md-archive.exe",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
