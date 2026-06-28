@@ -4,6 +4,26 @@
 
 const $ = (id) => document.getElementById(id);
 
+// Settings the GUI remembers across launches. databaseIds is stashed here and
+// applied to the dropdown once T3 lists the available databases.
+const saved = { databaseIds: [], tokenSet: false };
+
+// Prefill from the persisted config (token is masked — shown only as a hint).
+async function loadConfig() {
+  try {
+    const res = await fetch("/config");
+    if (!res.ok) return;
+    const cfg = await res.json();
+    saved.databaseIds = cfg.databaseIds ?? [];
+    saved.tokenSet = !!cfg.tokenSet;
+    if (cfg.outBase) $("output").value = cfg.outBase;
+    if (cfg.tokenSet) $("token").placeholder = `${cfg.tokenHint} (saved — leave blank to reuse)`;
+  } catch {
+    // No server config yet — leave the form empty.
+  }
+}
+loadConfig();
+
 // Mode toggle: show the option group for the selected direction. Pure frontend,
 // no backend call — safe to ship in T1.
 function syncMode() {

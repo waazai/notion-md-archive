@@ -19,14 +19,14 @@ Each task is one vertical slice (page → server → result).
 
 ---
 
-## T2 — Config load + prefill  ▢
+## T2 — Config load + prefill  ✅
 Persistence read: reopening pre-fills last settings.
 
-- [ ] `GET /config` → return `config.json` (`loadConfig`), **token masked** to `secret_…last4`.
-- [ ] `app.js`: on load, fetch `/config`, populate token (masked) / databaseIds / outBase / flags.
+- [x] `GET /config` → return persisted settings (`peekConfig`, never throws), **token masked**.
+- [x] `app.js`: on load, fetch `/config`, populate outBase + token hint; stash databaseIds for T3.
 
-**Verify:** put values in `config.json`, reload page → fields filled, token masked.
-**AC:** spec criterion 2.
+**Verify:** live `/config` returns masked token (`ntn_…EckF`) + db id + outBase from `.env`. ✅
+**AC:** spec criterion 2. ✅ · seam: `createServer(deps)` for offline tests.
 
 ---
 

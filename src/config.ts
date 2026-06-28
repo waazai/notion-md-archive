@@ -45,6 +45,22 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   return { token, databaseIds, outBase, props: overrides.props ?? json.props };
 }
 
+/** Current settings without validation — for the GUI prefill (GET /config).
+ *  Unlike `loadConfig` it never throws on a missing token / database id; it just
+ *  returns whatever is present so the form can show it. Same precedence as
+ *  `loadConfig` minus CLI overrides: config.json -> env. */
+export function peekConfig(): { token: string; databaseIds: string[]; outBase: string; props?: PropNames } {
+  loadDotEnv();
+  const json = existsSync(CONFIG_JSON)
+    ? (JSON.parse(readFileSync(CONFIG_JSON, "utf8")) as Partial<AppConfig> & { databaseId?: string })
+    : {};
+  const token = json.token ?? process.env.NOTION_TOKEN ?? "";
+  const rawDb = json.databaseIds?.join(",") ?? json.databaseId ?? process.env.NOTES_DB_ID ?? "";
+  const outBase = json.outBase ?? process.env.OUT_BASE ?? "./out";
+  const databaseIds = rawDb.split(",").map((s) => s.trim()).filter(Boolean);
+  return { token, databaseIds, outBase, props: json.props };
+}
+
 function loadDotEnv(): void {
   if (!existsSync(ENV_FILE)) return;
   for (const line of readFileSync(ENV_FILE, "utf8").split("\n")) {
