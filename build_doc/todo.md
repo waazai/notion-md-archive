@@ -5,15 +5,15 @@ Each task is one vertical slice (page → server → result).
 
 ---
 
-## T1 — Backend skeleton + static frontend  ▢
+## T1 — Backend skeleton + static frontend  ✅
 **Unblocks everything.** Backend serves the static page; no live data yet.
 
-- [ ] `src/server.ts`: Node `http` server on port (`GUI_PORT` || 4517), prints URL, opens browser.
-- [ ] `GET /` → serve `src/gui/index.html`; serve `src/gui/styles.css` + `app.js` static (correct content-types).
-- [ ] `src/gui/index.html` + `styles.css` + `app.js`: form shell (token, db dropdown, output, mode toggle, flags, Run) + empty log pane. No data wiring yet.
+- [x] `src/server.ts`: Node `http` server on port (`GUI_PORT` || 4517), prints URL, opens browser.
+- [x] `GET /` → serve `src/gui/index.html`; serve `src/gui/styles.css` + `app.js` static (correct content-types).
+- [x] `src/gui/index.html` + `styles.css` + `app.js`: form shell (token, db dropdown, output, mode toggle, flags, Run) + empty log pane. No data wiring yet.
 
-**Verify:** `npm run gui` → browser shows the form. `npm test` + `npm run typecheck` green.
-**AC:** page loads, no new dep in `package.json`, no build step.
+**Verify:** `npm run gui` → browser shows the form. `npm test` (140) + `npm run typecheck` green. ✅
+**AC:** page loads, no new dep in `package.json`, no build step. ✅ · commit `d3e9410`
 
 ### ▶ CP-1 — confirm FE/BE split: a `styles.css`-only edit restyles the page with zero `server.ts` change.
 
