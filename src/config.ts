@@ -1,6 +1,22 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
 import type { PropNames } from "./frontmatter.js";
+
+// Replaced with `true` by `bun build --define IS_PACKAGED=true` when compiling the
+// standalone executable; undefined everywhere else (dev / CLI / tests), guarded by
+// `typeof` so referencing it never throws at runtime.
+declare const IS_PACKAGED: boolean | undefined;
+const PACKAGED = typeof IS_PACKAGED !== "undefined" && IS_PACKAGED === true;
+
+/** Where config.json / .env / the default out/ live. A packaged exe uses the
+ *  directory of the binary (process.cwd() is unreliable for a double-clicked app
+ *  — on macOS it is "/"); dev and the CLI keep cwd-relative behaviour. Pure for
+ *  testing. */
+export function configBaseDir(packaged: boolean, execPath: string, cwd: string): string {
+  return packaged ? dirname(execPath) : cwd;
+}
+
+const BASE_DIR = configBaseDir(PACKAGED, process.execPath, process.cwd());
 
 export interface AppConfig {
   token: string;
@@ -13,8 +29,8 @@ export interface AppConfig {
   props?: PropNames;
 }
 
-const CONFIG_JSON = resolve(process.cwd(), "config.json");
-const ENV_FILE = resolve(process.cwd(), ".env");
+const CONFIG_JSON = resolve(BASE_DIR, "config.json");
+const ENV_FILE = resolve(BASE_DIR, ".env");
 
 /** Resolution order: config.json (written by the GUI) -> env vars.
  *  A local .env file is loaded into process.env first if present. */
