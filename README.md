@@ -8,13 +8,13 @@ Two-way bridge between a Notion **database** and a local GitHub-Flavored-Markdow
 - **Import** — a local `.md` file (or folder) → Notion: frontmatter maps to properties, the
   body converts to blocks. Re-runs are idempotent (matched by identity key, updated not duplicated).
 
-CLI today. A small local GUI window is planned but paused (see [Roadmap](#roadmap)).
-For internals / contributing, see [CLAUDE.md](CLAUDE.md).
+CLI today, plus a small **local GUI** (`npm run gui`). For internals / contributing, see
+[CLAUDE.md](CLAUDE.md); GUI design notes live in [build_doc/](build_doc/).
 
-## Status (2026-06-27)
+## Status (2026-06-28)
 
-Export **P0–P4** and Import **A–F** are complete and verified against a real database —
-`tsc --noEmit` + the full vitest suite (136 tests) pass offline. Only the **GUI** is unstarted.
+Export **P0–P4**, Import **A–F**, and the **GUI** (T1–T8) are complete and verified against a
+real database — `tsc --noEmit` + the full vitest suite (158 tests) pass offline.
 
 ## Setup
 
@@ -121,10 +121,24 @@ External `http(s)` images stay external (not downloaded on export, not re-upload
   loop. If two files in the *same* batch resolve to the same key `YYYY-MM-DD-{slug(title)}`, both
   are created instead of the second updating the first. Cross-run and single `--file` are unaffected.
 
+## GUI
+
+```bash
+npm run gui      # serves http://localhost:4517 (override GUI_PORT)
+```
+
+A local web page (zero new deps, no build step) over the same engine:
+
+- **Token + Database** shared at the top; **Connect** lists the databases the integration sees.
+- **Export / Import tabs** — Export has Output + dry-run + since; Import has a **Source** path
+  (file or folder; previews how many markdown files it holds) + dry-run.
+- **Live log** streams over SSE; settings persist to `config.json`, so re-opening pre-fills them
+  and the CLI reuses the same file.
+- **Map** field in both tabs shows the **DB-aware default mapping** for the selected database.
+
+Design notes: [build_doc/SPEC-gui.md](build_doc/SPEC-gui.md).
+
 ## Roadmap
 
-- **GUI window** (paused) — a local web page to enter a token, list/pick a database, choose an
-  output folder, and Run with a live log. The engine (`runExport` / `runImport`) is already a thin
-  core a GUI can call directly.
 - **Deferred import enhancements** (not blocking) — non-image file attachment upload;
   intra-batch duplicate-key de-duplication.

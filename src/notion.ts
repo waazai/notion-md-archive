@@ -44,6 +44,23 @@ export class Notion {
     return { name, properties: db.properties ?? {} };
   }
 
+  /** Every database the integration is shared with (for the GUI picker). */
+  async listDatabases(): Promise<{ id: string; name: string }[]> {
+    const out: { id: string; name: string }[] = [];
+    let cursor: string | undefined;
+    do {
+      const res: any = await this.schedule(() =>
+        this.client.search({ filter: { value: "database", property: "object" }, start_cursor: cursor })
+      );
+      for (const r of res.results) {
+        const name = (r.title ?? []).map((t: any) => t.plain_text).join("").trim() || "Untitled";
+        out.push({ id: r.id, name });
+      }
+      cursor = res.has_more ? res.next_cursor : undefined;
+    } while (cursor);
+    return out;
+  }
+
   /** All pages in a database, following pagination. */
   async queryDatabase(databaseId: string): Promise<NotionPage[]> {
     const pages: NotionPage[] = [];

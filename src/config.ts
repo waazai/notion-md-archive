@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { PropNames } from "./frontmatter.js";
 
@@ -43,6 +43,34 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   if (!databaseIds.length) throw new Error("Missing database id (NOTES_DB_ID / config.json / flag).");
 
   return { token, databaseIds, outBase, props: overrides.props ?? json.props };
+}
+
+/** Current settings without validation — for the GUI prefill (GET /config).
+ *  Unlike `loadConfig` it never throws on a missing token / database id; it just
+ *  returns whatever is present so the form can show it. Same precedence as
+ *  `loadConfig` minus CLI overrides: config.json -> env. */
+export function peekConfig(): { token: string; databaseIds: string[]; outBase: string; props?: PropNames } {
+  loadDotEnv();
+  const json = existsSync(CONFIG_JSON)
+    ? (JSON.parse(readFileSync(CONFIG_JSON, "utf8")) as Partial<AppConfig> & { databaseId?: string })
+    : {};
+  const token = json.token ?? process.env.NOTION_TOKEN ?? "";
+  const rawDb = json.databaseIds?.join(",") ?? json.databaseId ?? process.env.NOTES_DB_ID ?? "";
+  const outBase = json.outBase ?? process.env.OUT_BASE ?? "./out";
+  const databaseIds = rawDb.split(",").map((s) => s.trim()).filter(Boolean);
+  return { token, databaseIds, outBase, props: json.props };
+}
+
+/** Persist GUI settings to config.json so the next launch — and the CLI — reuse
+ *  them. Written pretty so a human can read/edit it. */
+export function writeConfigJson(cfg: { token: string; databaseIds: string[]; outBase: string; props?: PropNames }): void {
+  const out: Record<string, unknown> = {
+    token: cfg.token,
+    databaseIds: cfg.databaseIds,
+    outBase: cfg.outBase,
+  };
+  if (cfg.props) out.props = cfg.props;
+  writeFileSync(CONFIG_JSON, JSON.stringify(out, null, 2) + "\n");
 }
 
 function loadDotEnv(): void {

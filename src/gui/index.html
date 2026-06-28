@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>notion-md-archive</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>notion-md-archive</h1>
+
+      <!-- Section 1 — shared: Token + Database -->
+      <div class="row">
+        <label for="token">Token</label>
+        <input id="token" type="password" placeholder="secret_…" autocomplete="off" />
+        <button id="connect" type="button">Connect</button>
+      </div>
+
+      <div class="row">
+        <label for="database">Database</label>
+        <select id="database">
+          <option value="">— connect to list databases —</option>
+        </select>
+      </div>
+
+      <hr />
+
+      <!-- Section 2 — Export / Import tabs -->
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="export" type="button" role="tab">Export</button>
+        <button class="tab" data-tab="import" type="button" role="tab">Import</button>
+      </div>
+
+      <section id="tab-export" class="tabpanel" role="tabpanel">
+        <div class="row">
+          <label for="output">Output</label>
+          <input id="output" type="text" placeholder="~/NotionArchive" />
+        </div>
+        <fieldset class="opts">
+          <label><input id="dry-run" type="checkbox" /> Dry run</label>
+          <label><input id="since" type="checkbox" /> Since last sync</label>
+        </fieldset>
+        <div class="row">
+          <label for="export-map">Map</label>
+          <input id="export-map" type="text" placeholder="type=Type,tags=Tags" />
+        </div>
+        <div class="hint" id="export-map-hint"></div>
+        <div class="row run-row">
+          <button id="run-export" type="button" class="primary">▶ Run Export</button>
+        </div>
+      </section>
+
+      <section id="tab-import" class="tabpanel" role="tabpanel" hidden>
+        <div class="row">
+          <label for="source">Source</label>
+          <input id="source" type="text" placeholder="./out/MyDB or ./note.md" />
+        </div>
+        <div class="hint" id="source-info"></div>
+        <fieldset class="opts">
+          <label><input id="import-dry-run" type="checkbox" /> Dry run</label>
+        </fieldset>
+        <div class="row">
+          <label for="import-map">Map</label>
+          <input id="import-map" type="text" placeholder="type=Type,tags=Tags" />
+        </div>
+        <div class="hint" id="import-map-hint"></div>
+        <div class="row run-row">
+          <button id="run-import" type="button" class="primary">▶ Run Import</button>
+        </div>
+      </section>
+
+      <hr />
+
+      <pre id="log" class="log" aria-live="polite"></pre>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
