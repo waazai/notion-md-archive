@@ -1,11 +1,11 @@
 // Frontend glue. Consumes only the backend's JSON + SSE contract
-// (see build_doc/SPEC-gui.md). T1 wires pure-frontend behaviour only;
-// /config, /databases, /run, /log are connected in later tasks.
+// (see build_doc/SPEC-gui.md). Token + Database are shared; Export and Import
+// are tabs, each with its own fields.
 
 const $ = (id) => document.getElementById(id);
 
 // Settings the GUI remembers across launches. databaseIds is stashed here and
-// applied to the dropdown once T3 lists the available databases.
+// applied to the dropdown once Connect lists the available databases.
 const saved = { databaseIds: [], tokenSet: false };
 
 // Prefill from the persisted config (token is masked — shown only as a hint).
@@ -24,21 +24,19 @@ async function loadConfig() {
 }
 loadConfig();
 
-// Mode toggle: show the option group for the selected direction. Pure frontend,
-// no backend call — safe to ship in T1.
-function syncMode() {
-  const mode = document.querySelector('input[name="mode"]:checked')?.value ?? "export";
-  $("export-opts").hidden = mode !== "export";
-  $("import-opts").hidden = mode !== "import";
+// --- Tabs -------------------------------------------------------------------
+function showTab(name) {
+  for (const tab of document.querySelectorAll(".tab")) {
+    tab.classList.toggle("active", tab.dataset.tab === name);
+  }
+  $("tab-export").hidden = name !== "export";
+  $("tab-import").hidden = name !== "import";
+}
+for (const tab of document.querySelectorAll(".tab")) {
+  tab.addEventListener("click", () => showTab(tab.dataset.tab));
 }
 
-for (const radio of document.querySelectorAll('input[name="mode"]')) {
-  radio.addEventListener("change", syncMode);
-}
-syncMode();
-
-// Connect: list the databases the integration can see, fill the dropdown, and
-// re-select the one remembered from last run.
+// --- Connect: list databases -----------------------------------------------
 $("connect").addEventListener("click", async () => {
   const token = $("token").value.trim();
   if (!token && !saved.tokenSet) {
@@ -79,20 +77,40 @@ function fillDatabases(databases) {
   if (remembered && databases.some((d) => d.id === remembered)) sel.value = remembered;
 }
 
-// Run: subscribe to the live log first, then POST /run. The engine's lines
-// stream back over SSE; `done` carries the summary, `error` a failure message.
-$("run").addEventListener("click", () => {
-  const mode = document.querySelector('input[name="mode"]:checked')?.value ?? "export";
+// --- Run (shared by both tabs) ---------------------------------------------
+// Parse a `k=Prop,k2=Prop2` map field into a props object (empty = use defaults).
+function parseMap(str) {
+  const props = {};
+  for (const pair of (str ?? "").split(",")) {
+    const [k, v] = pair.split("=").map((s) => s.trim());
+    if (k && v) props[k] = v;
+  }
+  return Object.keys(props).length ? props : undefined;
+}
+
+function runRun(mode) {
   const token = $("token").value.trim();
   const databaseIds = [$("database").value].filter(Boolean);
-
   if (!token && !saved.tokenSet) return appendLog("Enter a token first.");
-  if (mode === "export" && !databaseIds.length) return appendLog("Pick a database first.");
+  if (!databaseIds.length) return appendLog("Pick a database first.");
+
+  const btn = mode === "export" ? $("run-export") : $("run-import");
+  const body = { token, databaseIds, mode };
+  if (mode === "export") {
+    body.outBase = $("output").value.trim();
+    body.dryRun = $("dry-run").checked;
+    body.since = $("since").checked;
+    body.props = parseMap($("export-map").value);
+  } else {
+    body.source = $("source").value.trim();
+    body.dryRun = $("import-dry-run").checked;
+    body.props = parseMap($("import-map").value);
+  }
 
   $("log").textContent = "";
-  $("run").disabled = true;
+  btn.disabled = true;
   const finish = () => {
-    $("run").disabled = false;
+    btn.disabled = false;
   };
 
   const es = new EventSource("/log");
@@ -101,14 +119,7 @@ $("run").addEventListener("click", () => {
       const res = await fetch("/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          token,
-          databaseIds,
-          outBase: $("output").value.trim(),
-          mode,
-          dryRun: $("dry-run").checked,
-          since: $("since").checked,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -153,7 +164,11 @@ $("run").addEventListener("click", () => {
       finish();
     }
   });
-});
+}
+
+$("run-export").addEventListener("click", () => runRun("export"));
+// Import run is wired in T6 (needs the /run import branch).
+$("run-import").addEventListener("click", () => appendLog("Import is not wired yet (T6)."));
 
 function appendLog(line) {
   const log = $("log");

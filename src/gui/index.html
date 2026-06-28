@@ -10,6 +10,7 @@
     <main class="card">
       <h1>notion-md-archive</h1>
 
+      <!-- Section 1 — shared: Token + Database -->
       <div class="row">
         <label for="token">Token</label>
         <input id="token" type="password" placeholder="secret_…" autocomplete="off" />
@@ -23,38 +24,51 @@
         </select>
       </div>
 
-      <div class="row">
-        <label for="output">Output</label>
-        <input id="output" type="text" placeholder="~/NotionArchive" />
-      </div>
-
       <hr />
 
-      <div class="row modes">
-        <label><input type="radio" name="mode" value="export" checked /> Export</label>
-        <label><input type="radio" name="mode" value="import" /> Import</label>
+      <!-- Section 2 — Export / Import tabs -->
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="export" type="button" role="tab">Export</button>
+        <button class="tab" data-tab="import" type="button" role="tab">Import</button>
       </div>
 
-      <fieldset id="export-opts" class="opts">
-        <label><input id="dry-run" type="checkbox" /> Dry run</label>
-        <label><input id="since" type="checkbox" /> Since last sync</label>
-      </fieldset>
+      <section id="tab-export" class="tabpanel" role="tabpanel">
+        <div class="row">
+          <label for="output">Output</label>
+          <input id="output" type="text" placeholder="~/NotionArchive" />
+        </div>
+        <fieldset class="opts">
+          <label><input id="dry-run" type="checkbox" /> Dry run</label>
+          <label><input id="since" type="checkbox" /> Since last sync</label>
+        </fieldset>
+        <div class="row">
+          <label for="export-map">Map</label>
+          <input id="export-map" type="text" placeholder="type=Type,tags=Tags" />
+        </div>
+        <div class="hint" id="export-map-hint"></div>
+        <div class="row run-row">
+          <button id="run-export" type="button" class="primary">▶ Run Export</button>
+        </div>
+      </section>
 
-      <fieldset id="import-opts" class="opts" hidden>
+      <section id="tab-import" class="tabpanel" role="tabpanel" hidden>
         <div class="row">
           <label for="source">Source</label>
           <input id="source" type="text" placeholder="./out/MyDB or ./note.md" />
+          <button id="browse" type="button">Browse…</button>
         </div>
+        <fieldset class="opts">
+          <label><input id="import-dry-run" type="checkbox" /> Dry run</label>
+        </fieldset>
         <div class="row">
-          <label for="map">Map</label>
-          <input id="map" type="text" placeholder="tags=Topics,type=Kind" />
+          <label for="import-map">Map</label>
+          <input id="import-map" type="text" placeholder="type=Type,tags=Tags" />
         </div>
-        <label><input id="import-dry-run" type="checkbox" /> Dry run</label>
-      </fieldset>
-
-      <div class="row run-row">
-        <button id="run" type="button" class="primary">▶ Run</button>
-      </div>
+        <div class="hint" id="import-map-hint"></div>
+        <div class="row run-row">
+          <button id="run-import" type="button" class="primary">▶ Run Import</button>
+        </div>
+      </section>
 
       <hr />
 

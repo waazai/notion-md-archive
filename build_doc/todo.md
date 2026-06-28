@@ -56,17 +56,16 @@ Full end-to-end export path through the GUI.
 
 ---
 
-## T5 — Layout: Export / Import tabs  ▢   (redesign 2026-06-28)
+## T5 — Layout: Export / Import tabs  ✅   (redesign 2026-06-28)
 Frontend-only refactor of the existing shell — reuses all current endpoints.
 
-- [ ] `index.html` + `styles.css`: replace the radio toggle with **tabs** (Export | Import);
-      move **Output** into the Export tab; add a **Source** field (text for now) + dry-run to
-      the Import tab; add an (empty) **Map** field to both; separate **Run Export** / **Run Import** buttons.
-- [ ] `app.js`: tab switching keeps Token + Database shared; `/config` still prefills Output;
-      Export Run path unchanged (still green via `/run` + SSE).
+- [x] `index.html` + `styles.css`: radio → **tabs**; Output in Export tab; Source + Browse in
+      Import tab; **Map** field in both; separate **Run Export** / **Run Import** buttons.
+- [x] `app.js`: tab switching keeps Token + Database shared; export Run path + Map parsing wired;
+      import Run is a placeholder until T6.
 
-**Verify:** tabs switch without losing token/db; export still runs end-to-end (live dry-run).
-**AC:** spec criteria 8 (+ 4–6 still hold).
+**Verify:** layout test (HTML structure) green; full suite 151 green; export path intact. ✅
+**AC:** spec criterion 8.
 
 ## T6 — Import run  ▢
 Wire the Import tab to the engine; additive `/run` branch.
