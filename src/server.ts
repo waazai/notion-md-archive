@@ -1,15 +1,14 @@
 import { createServer as createHttpServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
 import { statSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { dirname, join, extname, resolve } from "node:path";
+import { dirname, join, extname } from "node:path";
 import { spawn } from "node:child_process";
 import { peekConfig, writeConfigJson } from "./config.js";
 import { Notion } from "./notion.js";
 import { resolvePropName, NAME_CANDIDATES } from "./frontmatter.js";
 import { runExport, type RunSummary, type Logger } from "./engine.js";
-import { runImport, type ImportResult } from "./import/engine.js";
+import { runImport, selectMarkdownFiles, type ImportResult } from "./import/engine.js";
 import type { ImportOptions } from "./import/options.js";
 import type { AppConfig } from "./config.js";
 import type { PropNames } from "./frontmatter.js";
@@ -242,17 +241,22 @@ async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<
     return;
   }
 
-  // GET /browse?path= — read-only directory listing for the Source picker.
-  // Folders first; `parent` lets the modal navigate up. Localhost only.
-  if (req.method === "GET" && url === "/browse") {
-    const target = resolve(new URL(req.url ?? "/", "http://localhost").searchParams.get("path") || homedir());
+  // POST /source-info {path} — preview the Import Source: how many importable
+  // markdown files the path holds (same filter the import uses). Read-only.
+  if (req.method === "POST" && url === "/source-info") {
+    const { path } = await readJsonBody(req);
+    if (!path) {
+      sendJson(res, 400, { error: "Path is required." });
+      return;
+    }
     try {
-      const entries = readdirSync(target, { withFileTypes: true })
-        .map((d) => ({ name: d.name, dir: d.isDirectory() }))
-        .sort((a, b) => (a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name)));
-      sendJson(res, 200, { path: target, parent: dirname(target), entries });
-    } catch (err) {
-      sendJson(res, 400, { error: (err as Error).message });
+      if (statSync(path).isDirectory()) {
+        sendJson(res, 200, { kind: "dir", count: selectMarkdownFiles(readdirSync(path)).length });
+      } else {
+        sendJson(res, 200, { kind: "file", count: 1 });
+      }
+    } catch {
+      sendJson(res, 200, { kind: "missing", count: 0 });
     }
     return;
   }

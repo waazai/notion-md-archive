@@ -19,7 +19,7 @@ Backend → frontend speaks exactly this. Nothing else crosses the line.
 | `GET /config` | `{ tokenSet, tokenHint, databaseIds: string[], outBase: string, props?: {...} }` (token masked) |
 | `POST /databases` `{token}` | `{ databases: [{ id, name }] }` or `{ error }` |
 | `GET /schema` `?db=&token=` | `{ map: { type, tags, created, lastSynced } }` — DB-aware default mapping (T8) |
-| `GET /browse` `?path=` | `{ path, parent, entries: [{ name, dir }] }` — read-only fs listing for the Source picker (T7) |
+| `POST /source-info` `{path}` | `{ kind, count }` — Import Source path → importable-file count (T7) |
 | `POST /run` `{token, databaseIds, outBase, props?, mode, dryRun, since, source}` | `202 {ok:true}` then stream on `/log` |
 | `GET /log` (SSE) | `data: <log line>\n\n` per line; final `event: done\ndata: <RunSummary JSON>\n\n`; on failure `event: error\ndata: <message>` |
 
@@ -44,7 +44,7 @@ T1 backend skeleton + static serving ──┬─► T2 /config load + prefill
                                         └─► T4 Run export + SSE + persist   [done; CP-2]
                                                   │
    (redesign 2026-06-28, post-CP-2)               ▼
-   T5 Export/Import tabs (FE refactor) ─► T6 Import run ─► T7 Source Browse
+   T5 Export/Import tabs (FE refactor) ─► T6 Import run ─► T7 Source path + file-count
                                         └─────────────────► T8 DB-aware Map hint
 ```
 
@@ -52,8 +52,9 @@ T1 backend skeleton + static serving ──┬─► T2 /config load + prefill
 - T5 is a frontend-only refactor (tabs, move Output into Export tab); it reuses every existing
   endpoint and must keep the export path green.
 - T6 adds the `/run` import branch (reuses T4's SSE + persist machinery).
-- T7 (`/browse` picker) and T8 (`/schema` Map hint) are independent enhancements, both need T5's
-  tab layout; T7 also makes T6's Source easier to fill but isn't required for T6.
+- T7 (Source path + `/source-info` count) and T8 (`/schema` Map hint) are independent
+  enhancements, both need T5's tab layout. (A native/OS file dialog was ruled out — browsers
+  can't expose real paths and the server runs in WSL/Linux — so Source stays a plain path.)
 
 ## Vertical slicing (each task = one complete path, page → server → result)
 

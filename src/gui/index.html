@@ -55,8 +55,8 @@
         <div class="row">
           <label for="source">Source</label>
           <input id="source" type="text" placeholder="./out/MyDB or ./note.md" />
-          <button id="browse" type="button">Browse…</button>
         </div>
+        <div class="hint" id="source-info"></div>
         <fieldset class="opts">
           <label><input id="import-dry-run" type="checkbox" /> Dry run</label>
         </fieldset>
@@ -74,21 +74,6 @@
 
       <pre id="log" class="log" aria-live="polite"></pre>
     </main>
-
-    <!-- Source picker (T7): server-side file/folder browser -->
-    <div id="browser" class="modal" hidden>
-      <div class="modal-card">
-        <div class="modal-head">
-          <button id="browser-up" type="button">↑ Up</button>
-          <span id="browser-path" class="modal-path"></span>
-        </div>
-        <ul id="browser-list" class="browser-list"></ul>
-        <div class="modal-foot">
-          <button id="browser-pick-folder" type="button" class="primary">Use this folder</button>
-          <button id="browser-cancel" type="button">Cancel</button>
-        </div>
-      </div>
-    </div>
 
     <script src="app.js"></script>
   </body>

@@ -32,7 +32,7 @@ thin shell beside the CLI — it does not own any logic; it reads/writes the sha
 | Settings store | **Shared `config.json`** | `config.ts` already resolves `config.json → env` and is documented as "written by the GUI". One source of truth for GUI, CLI, and future AI tool. |
 | Token at rest | **Plaintext in `config.json`** | Same risk profile as the existing `.env`. `config.json` is already gitignored and untracked. Simplest; no native keychain dependency. |
 | Export vs Import | **Two tabs** (not a radio) | Each direction owns its path field + flags; Token + Database stay shared above the tabs. (revised 2026-06-28) |
-| Source picker | **Server-side `/browse` modal** | Native dialogs can't return a real path and `webkitdirectory` only uploads files; a local server has fs access, so it lists folders itself and returns the picked file/folder path. |
+| Source input | **Plain path field + `/source-info` count** | A native OS dialog can't hand a real path to a web page (browser security, any OS) and the server runs in WSL/Linux anyway, so a browser/Windows picker is unusable. The Source is a plain path; on input the page previews the importable-file count. (revised 2026-06-28) |
 | Map default | **DB-aware (`/schema` + `resolvePropName`)** | Shows what each key actually resolves to in the selected DB (e.g. `tags→Categories`), reusing existing resolution logic. Field empty = use defaults. |
 
 ### Security note (token)
@@ -71,7 +71,7 @@ served verbatim — to restyle, edit `styles.css` only; the server never depends
 | `GET /config` | — | JSON (token masked) | Current settings to pre-fill the form. Token returned **masked** (`tokenHint` + `tokenSet`); the raw token never reaches the page. |
 | `POST /databases` | `{ token }` | `{ databases: [{ id, name }] }` | List databases the integration can see, for the picker. Blank token reuses the saved one. |
 | `GET /schema` | `?db=&token=` | `{ map: { type, tags, created, lastSynced } }` | DB-aware default mapping: runs `resolvePropName` against the chosen DB's schema so the Map field can show what each key actually resolves to (e.g. `tags→Categories`). |
-| `GET /browse` | `?path=` | `{ path, parent, entries: [{ name, dir }] }` | Server-side filesystem listing for the Import **Source** picker (read-only; local only). Used by a small in-page modal to pick a file or folder. |
+| `POST /source-info` | `{ path }` | `{ kind: "dir"\|"file"\|"missing", count }` | Preview the Import **Source**: how many importable markdown files the pasted path holds (same filter the import uses). Read-only. |
 | `POST /run` | `{ token, databaseIds, outBase, props?, mode, dryRun, since, source }` | `202 { ok }` then SSE | Persist settings to `config.json`, then run the chosen direction. |
 | `GET /log` (SSE) | — | `text/event-stream` | Live engine log lines; the `log` callback writes `data: <line>\n\n`. A terminal `event: done` carries the run summary, `event: error` a failure. |
 
@@ -104,7 +104,8 @@ served verbatim — to restyle, edit `styles.css` only; the server never depends
 │ │                            tags→Categories…  │  ← DB-aware hint
 │ │            [ ▶ Run Export ]                  │
 │ │ IMPORT                                       │
-│ │   Source [ ./out/Notes ]      [ Browse… ]    │  ← server-side picker
+│ │   Source [ ./out/Notes ]                     │  ← plain path
+│ │          3 markdown file(s) in folder        │  ← /source-info preview
 │ │   [x] Dry run                                │
 │ │   Map    [ ____________ ] type→Type · …      │
 │ │            [ ▶ Run Import ]                  │
@@ -118,16 +119,17 @@ served verbatim — to restyle, edit `styles.css` only; the server never depends
 
 - **Tabs** (not a radio toggle) switch the active option group; Token + Database stay shared.
 - **Export tab:** Output folder, `--dry-run`, `--since`, Map.
-- **Import tab:** Source (file **or** folder, via the `/browse` modal), `--dry-run`, Map.
+- **Import tab:** Source (a plain path — file **or** folder; the page previews the file count
+  via `/source-info`), `--dry-run`, Map.
 - **Map** field is empty by default = use defaults; the **DB-aware default** (from `/schema`)
   is shown beside it as a greyed hint so the user sees what each key resolves to before typing
   any override.
 
 ## Out of scope / deferred
 
-- **`/browse` is read-only filesystem listing**, localhost-only, single-user — it lists the
-  user's own machine like a native dialog would. It never writes; the server still binds
-  `127.0.0.1` only (never `0.0.0.0`).
+- **No native/OS file dialog** — impossible from a web page (browsers never expose real paths;
+  the server runs in WSL/Linux so Windows paths wouldn't match its fs anyway). Source is a plain
+  path field; `/source-info` only *counts* files (read-only), it never lists or writes.
 - No auth on the local server. Acceptable for a single-user local tool.
 - Multi-run history / scheduling — not in this phase.
 
@@ -147,8 +149,8 @@ served verbatim — to restyle, edit `styles.css` only; the server never depends
    Export tab, Source in the Import tab.
 9. **Import (`Run Import`)** runs `runImport` over the chosen Source, streaming the log the same
    way as export.
-10. The Import **Source** field has a **Browse…** picker (`/browse`) that selects a file or a
-    folder and fills the path.
+10. The Import **Source** is a plain path field; entering a path previews the importable-file
+    count (`/source-info`: folder → N markdown files, file → 1, missing → not found).
 11. Both tabs show the **DB-aware default mapping** (`/schema`) as a hint; an empty Map field
     means "use defaults".
 ```

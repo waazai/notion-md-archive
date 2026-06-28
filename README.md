@@ -130,8 +130,8 @@ npm run gui      # serves http://localhost:4517 (override GUI_PORT)
 A local web page (zero new deps, no build step) over the same engine:
 
 - **Token + Database** shared at the top; **Connect** lists the databases the integration sees.
-- **Export / Import tabs** — Export has Output + dry-run + since; Import has a **Source**
-  file/folder picker + dry-run.
+- **Export / Import tabs** — Export has Output + dry-run + since; Import has a **Source** path
+  (file or folder; previews how many markdown files it holds) + dry-run.
 - **Live log** streams over SSE; settings persist to `config.json`, so re-opening pre-fills them
   and the CLI reuses the same file.
 - **Map** field in both tabs shows the **DB-aware default mapping** for the selected database.

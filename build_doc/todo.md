@@ -76,14 +76,16 @@ Wire the Import tab to the engine; additive `/run` branch.
 **Verify:** test drives mode=import → injected runImport, asserts opts (dir/map/dryRun) + SSE done summary. ✅
 **AC:** spec criterion 9. ✅
 
-## T7 — Source Browse (file/folder picker)  ✅
-Server-side filesystem picker for the Import Source.
+## T7 — Source path + file-count preview  ✅   (revised: native picker ruled out)
+Plain path field for the Import Source, with a live importable-file count.
 
-- [x] `GET /browse?path=` → `{ path, parent, entries:[{name,dir}] }` (read-only, folders first, localhost).
-- [x] `app.js` + `styles.css`: modal navigates folders, picks a file **or** folder (Use this folder) → fills Source.
+- [x] `POST /source-info {path}` → `{ kind:"dir"|"file"|"missing", count }` (reuses `selectMarkdownFiles`; read-only).
+- [x] `app.js`: on Source input (debounced), preview "N markdown file(s) in folder" / "1 file" / "path not found".
+- [x] Server-side browser modal removed (`/browse`, modal markup/CSS/JS) — a native/OS dialog
+      can't return a real path to a web page, and the server runs in WSL/Linux.
 
-**Verify:** test against a temp dir (folders-first, parent, 400 on bad path); live `/browse` listed `src/`. ✅
-**AC:** spec criterion 10. ✅
+**Verify:** test (dir excludes INDEX.md → 2; file → 1; missing → 0); live build_doc → 3, README.md → 1, nope → 0. ✅
+**AC:** spec criterion 10 (revised). ✅
 
 ## T8 — DB-aware Map hint  ✅
 Show what each frontmatter key resolves to in the selected DB.

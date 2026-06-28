@@ -204,45 +204,29 @@ function runRun(mode) {
 $("run-export").addEventListener("click", () => runRun("export"));
 $("run-import").addEventListener("click", () => runRun("import"));
 
-// --- Source browser modal (file/folder picker) -----------------------------
-const browser = { path: null };
-
-async function browseTo(path) {
-  const res = await fetch(path ? `/browse?path=${encodeURIComponent(path)}` : "/browse");
-  const data = await res.json();
-  if (!res.ok) {
-    appendLog(`Browse failed: ${data.error ?? res.status}`);
-    return;
-  }
-  browser.path = data.path;
-  $("browser-path").textContent = data.path;
-  $("browser-up").onclick = () => browseTo(data.parent);
-
-  const list = $("browser-list");
-  list.innerHTML = "";
-  for (const entry of data.entries) {
-    const li = document.createElement("li");
-    li.textContent = `${entry.dir ? "📁" : "📄"} ${entry.name}`;
-    li.className = entry.dir ? "is-dir" : "is-file";
-    const full = data.path.endsWith("/") ? data.path + entry.name : `${data.path}/${entry.name}`;
-    li.addEventListener("click", () => (entry.dir ? browseTo(full) : pickSource(full)));
-    list.append(li);
-  }
+// --- Source preview: paste a path, see how many files it holds --------------
+let sourceTimer;
+function previewSource() {
+  clearTimeout(sourceTimer);
+  const path = $("source").value.trim();
+  if (!path) return ($("source-info").textContent = "");
+  sourceTimer = setTimeout(async () => {
+    try {
+      const res = await fetch("/source-info", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path }),
+      });
+      const info = await res.json();
+      if (info.kind === "dir") $("source-info").textContent = `${info.count} markdown file(s) in folder`;
+      else if (info.kind === "file") $("source-info").textContent = "1 file";
+      else $("source-info").textContent = "path not found";
+    } catch {
+      $("source-info").textContent = "";
+    }
+  }, 300);
 }
-
-function pickSource(path) {
-  $("source").value = path;
-  $("browser").hidden = true;
-}
-
-$("browse").addEventListener("click", () => {
-  $("browser").hidden = false;
-  browseTo($("source").value.trim() || undefined);
-});
-$("browser-pick-folder").addEventListener("click", () => pickSource(browser.path));
-$("browser-cancel").addEventListener("click", () => {
-  $("browser").hidden = true;
-});
+$("source").addEventListener("input", previewSource);
 
 function appendLog(line) {
   const log = $("log");

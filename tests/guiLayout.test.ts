@@ -37,7 +37,7 @@ describe("GUI layout — Export/Import tabs (T5)", () => {
 
     const importPanel = html.split('id="tab-import"')[1]!;
     expect(importPanel).toContain('id="source"');
-    expect(importPanel).toContain('id="browse"');
+    expect(importPanel).toContain('id="source-info"');
 
     // The old radio mode-toggle is gone.
     expect(html).not.toContain('name="mode"');
