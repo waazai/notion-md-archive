@@ -75,7 +75,37 @@ function fillDatabases(databases) {
   // Re-select the remembered database if it is still in the list.
   const remembered = saved.databaseIds[0];
   if (remembered && databases.some((d) => d.id === remembered)) sel.value = remembered;
+  loadSchemaHint();
 }
+
+// --- DB-aware Map hint ------------------------------------------------------
+// Show what each frontmatter key resolves to in the selected database, so the
+// user sees the defaults before typing any Map override.
+async function loadSchemaHint() {
+  const db = $("database").value;
+  const token = $("token").value.trim();
+  if (!db || (!token && !saved.tokenSet)) return renderMapHint(null);
+  try {
+    const res = await fetch("/schema", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token, db }),
+    });
+    renderMapHint(res.ok ? (await res.json()).map : null);
+  } catch {
+    renderMapHint(null);
+  }
+}
+
+function renderMapHint(map) {
+  const text = map
+    ? "defaults: " + ["type", "tags", "created", "lastSynced"].map((k) => `${k}→${map[k] ?? "—"}`).join(" · ")
+    : "";
+  $("export-map-hint").textContent = text;
+  $("import-map-hint").textContent = text;
+}
+
+$("database").addEventListener("change", loadSchemaHint);
 
 // --- Run (shared by both tabs) ---------------------------------------------
 // Parse a `k=Prop,k2=Prop2` map field into a props object (empty = use defaults).

@@ -85,13 +85,14 @@ Server-side filesystem picker for the Import Source.
 **Verify:** test against a temp dir (folders-first, parent, 400 on bad path); live `/browse` listed `src/`. ✅
 **AC:** spec criterion 10. ✅
 
-## T8 — DB-aware Map hint  ▢
+## T8 — DB-aware Map hint  ✅
 Show what each frontmatter key resolves to in the selected DB.
 
-- [ ] `GET /schema?db=&token=` → `{ map:{ type, tags, created, lastSynced } }` via `resolvePropName`.
-- [ ] `app.js`: on database select, fetch `/schema`, render the resolved mapping as a greyed hint by both Map fields.
+- [x] `POST /schema {token,db}` → `{ map:{ type, tags, created, lastSynced } }` via `resolvePropName`
+      (POST not GET — keeps the token out of the URL).
+- [x] `app.js`: on database select/connect, fetch `/schema`, render the resolved mapping as a greyed hint by both Map fields.
 
-**Verify:** selecting Notes shows e.g. `tags→Categories`; empty Map field = defaults.
-**AC:** spec criterion 11.
+**Verify:** live `/schema` on Notes → `type→Type · tags→Tags · created→Created · lastSynced→Last synced`. ✅
+**AC:** spec criterion 11. ✅
 
-### ▶ CP-3 — feature complete; run the spec's full acceptance list. `npm test` + `npm run typecheck` green.
+### ▶ CP-3 — feature complete. 158 tests + typecheck green. Live-verified `/config`, `/databases`, `/schema`, `/browse`, `/run` (export dry-run). ✅

@@ -7,6 +7,7 @@ import { dirname, join, extname, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { peekConfig, writeConfigJson } from "./config.js";
 import { Notion } from "./notion.js";
+import { resolvePropName, NAME_CANDIDATES } from "./frontmatter.js";
 import { runExport, type RunSummary, type Logger } from "./engine.js";
 import { runImport, type ImportResult } from "./import/engine.js";
 import type { ImportOptions } from "./import/options.js";
@@ -29,6 +30,27 @@ export interface ServerDeps {
   writeConfig?: (cfg: RawConfig) => void;
   run?: (config: AppConfig, log: Logger, opts: { dryRun?: boolean; since?: boolean }) => Promise<RunSummary>;
   runImport?: (config: AppConfig, opts: ImportOptions, log: Logger) => Promise<ImportResult[]>;
+  resolveSchema?: (token: string, db: string) => Promise<ResolvedMap>;
+}
+
+/** What each frontmatter key resolves to in a given DB (null = no match). */
+export interface ResolvedMap {
+  type: string | null;
+  tags: string | null;
+  created: string | null;
+  lastSynced: string | null;
+}
+
+/** Default schema resolver: read the DB and run the same name-resolution the
+ *  export/import paths use, so the GUI hint matches real behaviour. */
+async function defaultResolveSchema(token: string, db: string): Promise<ResolvedMap> {
+  const { properties } = await new Notion(token).retrieveDatabase(db);
+  return {
+    type: resolvePropName(properties, undefined, NAME_CANDIDATES.type) ?? null,
+    tags: resolvePropName(properties, undefined, NAME_CANDIDATES.tags) ?? null,
+    created: resolvePropName(properties, undefined, NAME_CANDIDATES.created) ?? null,
+    lastSynced: resolvePropName(properties, undefined, NAME_CANDIDATES.lastSynced) ?? null,
+  };
 }
 
 /** Source path -> import options. A directory becomes `--dir`, a file `--file`;
@@ -185,6 +207,23 @@ async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<
     return;
   }
 
+  // POST /schema {token, db} — DB-aware default mapping for the Map hint.
+  if (req.method === "POST" && url === "/schema") {
+    const body = await readJsonBody(req);
+    const token = body.token || deps.readConfig().token;
+    if (!token || !body.db) {
+      sendJson(res, 400, { error: "Token and database are required." });
+      return;
+    }
+    try {
+      const map = await deps.resolveSchema(token, body.db);
+      sendJson(res, 200, { map });
+    } catch (err) {
+      sendJson(res, 400, { error: (err as Error).message });
+    }
+    return;
+  }
+
   // POST /databases {token} — list the databases the integration can see.
   // A blank token reuses the saved one (the page only ever holds a masked hint).
   if (req.method === "POST" && url === "/databases") {
@@ -249,6 +288,7 @@ export function createServer(deps: ServerDeps = {}): Server {
     writeConfig: deps.writeConfig ?? writeConfigJson,
     run: deps.run ?? runExport,
     runImport: deps.runImport ?? runImport,
+    resolveSchema: deps.resolveSchema ?? defaultResolveSchema,
   };
   const hub = createSseHub();
   return createHttpServer((req, res) => {
