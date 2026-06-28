@@ -139,11 +139,16 @@ function runRun(mode) {
   es.addEventListener("done", (ev) => {
     try {
       const summary = JSON.parse(ev.data);
-      for (const d of summary.databases ?? []) {
-        appendLog(
-          `— ${d.name}: ${d.notes} notes (${d.written} written, ${d.skipped} skipped), ` +
-            `${d.attachments} attachments, ${d.orphans} orphans`
-        );
+      if (summary.import) {
+        const s = summary.import;
+        appendLog(`— ${s.files} file(s): ${s.created} created, ${s.updated} updated, ${s.failed} failed`);
+      } else {
+        for (const d of summary.databases ?? []) {
+          appendLog(
+            `— ${d.name}: ${d.notes} notes (${d.written} written, ${d.skipped} skipped), ` +
+              `${d.attachments} attachments, ${d.orphans} orphans`
+          );
+        }
       }
     } catch {
       /* malformed summary — the log lines above still stand */
@@ -167,8 +172,7 @@ function runRun(mode) {
 }
 
 $("run-export").addEventListener("click", () => runRun("export"));
-// Import run is wired in T6 (needs the /run import branch).
-$("run-import").addEventListener("click", () => appendLog("Import is not wired yet (T6)."));
+$("run-import").addEventListener("click", () => runRun("import"));
 
 function appendLog(line) {
   const log = $("log");

@@ -1,11 +1,14 @@
 import { createServer as createHttpServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
+import { statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, extname } from "node:path";
 import { spawn } from "node:child_process";
 import { peekConfig, writeConfigJson } from "./config.js";
 import { Notion } from "./notion.js";
 import { runExport, type RunSummary, type Logger } from "./engine.js";
+import { runImport, type ImportResult } from "./import/engine.js";
+import type { ImportOptions } from "./import/options.js";
 import type { AppConfig } from "./config.js";
 import type { PropNames } from "./frontmatter.js";
 
@@ -24,6 +27,27 @@ export interface ServerDeps {
   listDatabases?: (token: string) => Promise<{ id: string; name: string }[]>;
   writeConfig?: (cfg: RawConfig) => void;
   run?: (config: AppConfig, log: Logger, opts: { dryRun?: boolean; since?: boolean }) => Promise<RunSummary>;
+  runImport?: (config: AppConfig, opts: ImportOptions, log: Logger) => Promise<ImportResult[]>;
+}
+
+/** Source path -> import options. A directory becomes `--dir`, a file `--file`;
+ *  resolved by stat when the path exists, else by the `.md` extension. */
+function buildImportOpts(source: string, dryRun: boolean, map: Record<string, string>): ImportOptions {
+  let isDir = !source.toLowerCase().endsWith(".md");
+  try {
+    isDir = statSync(source).isDirectory();
+  } catch {
+    // path not present (e.g. under test) — keep the extension heuristic
+  }
+  return { ...(isDir ? { dir: source } : { file: source }), map, dryRun };
+}
+
+/** Collapse import results into a summary for the SSE `done` event. */
+function summarizeImport(results: ImportResult[]): { import: { files: number; created: number; updated: number; failed: number } } {
+  const created = results.filter((r) => r.action === "created" || r.action === "would-create").length;
+  const updated = results.filter((r) => r.action === "updated" || r.action === "would-update").length;
+  const failed = results.filter((r) => r.action === "failed").length;
+  return { import: { files: results.length, created, updated, failed } };
 }
 
 /** Mask a token for display: keep a 4-char tail hint, hide the rest. */
@@ -126,12 +150,22 @@ async function handle(req: IncomingMessage, res: ServerResponse, deps: Required<
       sendJson(res, 400, { error: "Token and at least one database are required." });
       return;
     }
+    const mode = body.mode === "import" ? "import" : "export";
+    if (mode === "import" && !body.source) {
+      sendJson(res, 400, { error: "A source file or folder is required for import." });
+      return;
+    }
     const config: AppConfig = { token, databaseIds, outBase, props };
     deps.writeConfig({ token, databaseIds, outBase, props });
     sendJson(res, 202, { ok: true }); // ack; the run streams asynchronously
     const log: Logger = (line) => hub.broadcastLine(line);
-    deps
-      .run(config, log, { dryRun: !!body.dryRun, since: !!body.since })
+    const job =
+      mode === "import"
+        ? deps
+            .runImport(config, buildImportOpts(body.source, !!body.dryRun, (props as Record<string, string>) ?? {}), log)
+            .then(summarizeImport)
+        : deps.run(config, log, { dryRun: !!body.dryRun, since: !!body.since });
+    job
       .then((summary) => hub.broadcastEvent("done", summary))
       .catch((err) => hub.broadcastEvent("error", { message: (err as Error).message }));
     return;
@@ -198,6 +232,7 @@ export function createServer(deps: ServerDeps = {}): Server {
     listDatabases: deps.listDatabases ?? ((token: string) => new Notion(token).listDatabases()),
     writeConfig: deps.writeConfig ?? writeConfigJson,
     run: deps.run ?? runExport,
+    runImport: deps.runImport ?? runImport,
   };
   const hub = createSseHub();
   return createHttpServer((req, res) => {

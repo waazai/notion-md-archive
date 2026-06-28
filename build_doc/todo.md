@@ -67,14 +67,14 @@ Frontend-only refactor of the existing shell — reuses all current endpoints.
 **Verify:** layout test (HTML structure) green; full suite 151 green; export path intact. ✅
 **AC:** spec criterion 8.
 
-## T6 — Import run  ▢
+## T6 — Import run  ✅
 Wire the Import tab to the engine; additive `/run` branch.
 
-- [ ] `POST /run` import branch → `runImport` (parse Source = file/dir, db, map, dryRun); same SSE log path.
-- [ ] `app.js`: Run Import sends Source + dryRun + map; renders the import summary.
+- [x] `POST /run` import branch → `runImport` (`buildImportOpts`: file vs dir by stat/.md; map, dryRun); same SSE path; import summary on `done`.
+- [x] `app.js`: Run Import sends Source + dryRun + map; renders the import summary.
 
-**Verify:** Run Import over a `./out/<db>` folder streams the log + result (dry-run first).
-**AC:** spec criterion 9.
+**Verify:** test drives mode=import → injected runImport, asserts opts (dir/map/dryRun) + SSE done summary. ✅
+**AC:** spec criterion 9. ✅
 
 ## T7 — Source Browse (file/folder picker)  ▢
 Server-side filesystem picker for the Import Source.
