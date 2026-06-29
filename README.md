@@ -1,57 +1,28 @@
 # notion-md-archive
 
-Two-way bridge between a Notion **database** and a local GitHub-Flavored-Markdown (GFM) archive.
+Notion is great in multi-device layout and sync, but files in notion are hard to access from outside, and the exporting formats are limited.  
+This project syncs Notion database directly to local Markdown files, combining Notion's accessibility with the flexibility of Markdown. 
 
-- **Export** — Notion database → one `.md` per note (YAML frontmatter + converted body) +
-  `attachments/` + `INDEX.md`, then write `Last synced = now` back to each note so the
-  Notion-side `Sync` formula flips.
-- **Import** — a local `.md` file (or folder) → Notion: frontmatter maps to properties, the
-  body converts to blocks. Re-runs are idempotent (matched by identity key, updated not duplicated).
+- **Export** — Notion database → one `.md` per page (YAML frontmatter + converted body) +
+  `attachments/` + `INDEX.md`, then writes `Last synced = now` back to each note.
+- **Import** — a local `.md` file (or folder) → Notion: frontmatter maps to properties, the body
+  converts to blocks. Re-runs are idempotent (matched by identity key, updated not duplicated).
 
-CLI today, plus a small **local GUI** (`npm run gui`). For internals / contributing, see
-[CLAUDE.md](CLAUDE.md); GUI design notes live in [build_doc/](build_doc/).
+> For internals, the full Markdown ⇄ Notion conversion table, and contributing notes, see
+> [CLAUDE.md](CLAUDE.md). Release/packaging plan: [build_doc/PLAN-release.md](build_doc/PLAN-release.md).
 
-## Status (2026-06-28)
+## Quick Start (Windows)
 
-Export **P0–P4**, Import **A–F**, and the **GUI** (T1–T8) are complete and verified against a
-real database — `tsc --noEmit` + the full vitest suite (163 tests) pass offline.
+1. Download `notion-md-archive.exe` from the
+   [latest release](https://github.com/waazai/notion-md-archive/releases).
+2. Double-click it. Your browser opens at `http://localhost:4517`.
+3. A `config.json` appears after first use (stores your token so you don't re-enter it every time).
 
-## Setup
+On first launch Windows SmartScreen may warn about an unknown publisher (the binary is unsigned)
+— choose **More info → Run anyway**. macOS/Linux executables aren't published yet — run from
+source (`npm run gui`) there for now.
 
-```bash
-npm install
-cp .env.example .env     # fill NOTION_TOKEN + NOTES_DB_ID
-```
-
-The Notion integration must be **shared** to the target database (Notion → database → `•••` →
-Connections). `NOTES_DB_ID` accepts a comma-separated list for multiple DBs. Token and ids may
-also live in a gitignored `config.json` (precedence: CLI flag → `config.json` → env).
-
-## Usage
-
-```bash
-# Export — Notion → Markdown
-npm run export                # full export → ${OUT_BASE}/${dbName}/ + INDEX.md + write-back
-npm run export -- --since     # only notes changed since last sync (Last edited > Last synced)
-npm run export -- --dry-run   # list what would happen; no writes, downloads, or write-back
-
-# Import — Markdown → Notion
-npm run import -- --file note.md --db <id>            # one file
-npm run import -- --dir ./out/MyDB --db <id>          # every *.md in a folder (skips INDEX.md)
-npm run import -- --file note.md --db <id> --dry-run  # show the plan; no writes/uploads/creates
-npm run import -- --file note.md --db <id> --map tags=Topics,type=Kind
-
-# Dev
-npm test                      # vitest
-npm run typecheck             # tsc --noEmit
-npx tsx scripts/demo.ts       # offline: emit a sample archive file (no network)
-```
-
-- `--file` / `--dir` (import, one required) — source. `--db` — target DB (falls back to config / `NOTES_DB_ID`).
-- `--map k=Prop,…` — override the YAML-key → Notion-property name.
-- **Token is never a CLI flag** — it comes from `.env` / `config.json` only, so it can't leak into shell history.
-
-## Output layout
+### Output layout
 
 ```
 ${OUT_BASE}/${databaseName}/
@@ -62,8 +33,9 @@ ${OUT_BASE}/${databaseName}/
 
 ## Database requirements (flexible)
 
-No exact schema is required. Every named property is matched **case-insensitively** against a
-default candidate list, overridable in `config.json` (`props`) or via `--map`:
+**Primary key: title + date.** No exact schema is required. Every named property is matched
+**case-insensitively** against a default candidate list, overridable in `config.json` (`props`)
+or via `--map`:
 
 | Frontmatter | Notion source | Default name candidates | If absent |
 |---|---|---|---|
@@ -87,31 +59,42 @@ the related DB, **auto-creating** a tag page when the name is new.
 }
 ```
 
-## Markdown ⇄ Notion conversion
+## Run from source
 
-Export (`blocksToGFM`) and import (`mdToBlocks`) are mirror functions over the **same GFM subset** —
-the goal is an archive-faithful round-trip, not a general Markdown engine.
+### Setup
 
-| Notion block | GFM | Round-trip |
-|---|---|---|
-| heading 1/2/3 | `#` / `##` / `###` | ↔ |
-| bulleted / numbered list (nested, 2-space) | `-` / `1.` | ↔ |
-| to-do | `- [ ]` / `- [x]` | ↔ |
-| quote | `>` | ↔ |
-| code (+ language) | ` ```lang ` fence | ↔ |
-| callout | `> [!NOTE]` (emoji ↔ flavor) | ↔ |
-| table | GFM table | ↔ |
-| divider | `---` | ↔ |
-| equation | `$$ … $$` | ↔ |
-| image / file | `![](attachments/…)` / `[file](attachments/…)` | ↔ export **downloads** (signed URLs expire ~1h), import **uploads** |
-| inline bold / italic / code / strike / link | `**b**` `*i*` `` `c` `` `~~s~~` `[t](url)` | ↔ |
-| toggle | `**title**` + flattened children | → one-way (not reconstructed on import) |
-| column / column_list | flattened sequentially | → one-way |
-| bookmark / embed / link preview | `[title](url)` | → one-way |
-| TOC / breadcrumb / child page/db | skipped | → dropped |
+```bash
+npm install
+cp .env.example .env     # fill NOTION_TOKEN + NOTES_DB_ID
+```
 
-Newlines: block boundary `\n\n`; consecutive list items `\n`; soft break inside a block `\n`.
-External `http(s)` images stay external (not downloaded on export, not re-uploaded on import).
+- The Notion integration must be **shared** to the target database (Notion → database → `•••` →
+  Connections).
+- `NOTES_DB_ID` accepts a comma-separated list for multiple DBs.
+- Token and ids may also live in a gitignored `config.json` (precedence: CLI flag → `config.json`
+  → env). **Token is never a CLI flag**, so it can't leak into shell history.
+
+### GUI
+
+```bash
+npm run gui      # serves http://localhost:4517 (override GUI_PORT)
+```
+
+A local web page over the same engine: Connect lists the databases the integration sees;
+Export/Import tabs stream a live log and persist settings to `config.json`.
+
+### CLI
+
+```bash
+# Export — Notion → Markdown
+npm run export                # full export → ${OUT_BASE}/${dbName}/ + INDEX.md + write-back
+npm run export -- --since     # only notes changed since last sync (Last edited > Last synced)
+
+# Import — Markdown → Notion
+npm run import -- --file note.md --db <id>            # one file
+npm run import -- --dir ./out/MyDB --db <id>          # every *.md in a folder (skips INDEX.md)
+npm run import -- --file note.md --db <id> --map tags=Topics,type=Kind
+```
 
 ## Known limitations
 
@@ -120,48 +103,3 @@ External `http(s)` images stay external (not downloaded on export, not re-upload
 - **Intra-batch duplicate identity keys.** A `--dir` run snapshots existing pages once before the
   loop. If two files in the *same* batch resolve to the same key `YYYY-MM-DD-{slug(title)}`, both
   are created instead of the second updating the first. Cross-run and single `--file` are unaffected.
-
-## GUI
-
-```bash
-npm run gui      # serves http://localhost:4517 (override GUI_PORT)
-```
-
-A local web page (zero new deps, no build step) over the same engine:
-
-- **Token + Database** shared at the top; **Connect** lists the databases the integration sees.
-- **Export / Import tabs** — Export has Output + dry-run + since; Import has a **Source** path
-  (file or folder; previews how many markdown files it holds) + dry-run.
-- **Live log** streams over SSE; settings persist to `config.json`, so re-opening pre-fills them
-  and the CLI reuses the same file.
-- **Map** field in both tabs shows the **DB-aware default mapping** for the selected database.
-
-Design notes: [build_doc/SPEC-gui.md](build_doc/SPEC-gui.md).
-
-## Download & run (Windows)
-
-Prefer a click-to-run app over the CLI? Releases ship a standalone Windows executable — no
-Node, no npm, no checkout.
-
-1. Download `notion-md-archive.exe` from the
-   [latest release](https://github.com/waazai/notion-md-archive/releases).
-2. Double-click it. Your browser opens at `http://localhost:4517` (the GUI above).
-3. Enter your token, pick a database, Run. `config.json` and the `out/` archive land next to
-   the `.exe`.
-
-On first launch Windows SmartScreen may warn about an unknown publisher (the binary is
-unsigned) — choose **More info → Run anyway**.
-
-Build it yourself (needs [bun](https://bun.sh)):
-
-```bash
-npm run build:win    # → dist/notion-md-archive.exe (bun --compile, ~95 MB)
-```
-
-macOS/Linux executables aren't published yet — run from source (`npm run gui`) there for now.
-See [build_doc/PLAN-release.md](build_doc/PLAN-release.md) for the packaging plan.
-
-## Roadmap
-
-- **Deferred import enhancements** (not blocking) — non-image file attachment upload;
-  intra-batch duplicate-key de-duplication.

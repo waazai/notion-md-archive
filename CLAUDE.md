@@ -1,7 +1,7 @@
 # CLAUDE.md — notion-md-archive
 
-Guidance for AI coding agents working in this subproject. For user-facing setup, the full
-command list, and the Markdown ⇄ Notion conversion table, see [README.md](README.md).
+Guidance for AI coding agents working in this subproject. For user-facing setup and the full
+command list, see [README.md](README.md). The Markdown ⇄ Notion conversion table lives below.
 
 ## What this is
 
@@ -84,6 +84,45 @@ options.ts (CLI flags→ImportOptions, PURE)   cli.ts (thin shell)
   code (Notion-owned); run live network writes in unit tests or require a token to build/test
   the pure path.
 
+## Markdown ⇄ Notion conversion
+
+Export (`blocksToGFM`) and import (`mdToBlocks`) are mirror functions over the **same GFM
+subset** — the goal is an archive-faithful round-trip, not a general Markdown engine. The
+round-trip test (`importRoundTrip.test.ts`) feeds `blocksToGFM` output back through
+`mdToBlocks` to guard this contract.
+
+| Notion block | GFM | Round-trip |
+|---|---|---|
+| heading 1/2/3 | `#` / `##` / `###` | ↔ |
+| bulleted / numbered list (nested, 2-space) | `-` / `1.` | ↔ |
+| to-do | `- [ ]` / `- [x]` | ↔ |
+| quote | `>` | ↔ |
+| code (+ language) | ` ```lang ` fence | ↔ |
+| callout | `> [!NOTE]` (emoji ↔ flavor) | ↔ |
+| table | GFM table | ↔ |
+| divider | `---` | ↔ |
+| equation | `$$ … $$` | ↔ |
+| image / file | `![](attachments/…)` / `[file](attachments/…)` | ↔ export **downloads** (signed URLs expire ~1h), import **uploads** |
+| inline bold / italic / code / strike / link | `**b**` `*i*` `` `c` `` `~~s~~` `[t](url)` | ↔ |
+| toggle | `**title**` + flattened children | → one-way (not reconstructed on import) |
+| column / column_list | flattened sequentially | → one-way |
+| bookmark / embed / link preview | `[title](url)` | → one-way |
+| TOC / breadcrumb / child page/db | skipped | → dropped |
+
+Newlines: block boundary `\n\n`; consecutive list items `\n`; soft break inside a block `\n`.
+External `http(s)` images stay external (not downloaded on export, not re-uploaded on import).
+
+## Packaging (Windows executable)
+
+```bash
+npm run build:win    # embed:gui + bun build --compile → dist/notion-md-archive.exe (~95 MB)
+```
+
+Needs [bun](https://bun.sh). `IS_PACKAGED=true` makes `config.json`/`.env` resolve beside the
+binary (`src/exe.ts` entry). macOS/Linux binaries aren't published — run from source there. Full
+packaging plan: [build_doc/PLAN-release.md](build_doc/PLAN-release.md). (No `SPEC-gui.md` exists;
+the GUI is documented inline in `src/server.ts` + this file.)
+
 ## Conventions & invariants (do not break)
 
 - **No token needed to develop.** Build and test everything except live network paths
@@ -140,8 +179,9 @@ in mind:
 
 ## Status
 
-Phase status lives in [README.md](README.md#status) (export P0–P4, import A–F — done;
-GUI paused). Built on branch `feat/import-module`. The two notes that matter when touching
+Export **P0–P4**, Import **A–F**, and the **GUI** are complete and verified against a real
+database — `tsc --noEmit` + the full vitest suite (163 tests) pass offline. Built on branch
+`feat/import-module`. The two notes that matter when touching
 this code:
 - ✅ **CP-E image upload regression guard** — the multipart `Blob` had no MIME type (sent as
   `application/octet-stream`) → `HTTP 400` on the send step. Fix: set the Blob `type` from the
